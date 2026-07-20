@@ -126,7 +126,24 @@ exocortex/
 packages:
   - 'packages/*'
   - 'apps/*'
+
+injectWorkspacePackages: true
 ```
+
+`injectWorkspacePackages` は Task 7 の Dockerfile が使う `pnpm deploy` のために要る。
+pnpm 10 以降、この設定が無い workspace からの `pnpm deploy` は `ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE` で失敗する。
+
+この制約は、deploy 先専用の lockfile を workspace の lockfile から生成するために入った[^deploy]。
+symlink では Node が常に単一の場所から依存を解決するため、peer dependency を複数バージョン共存させられない。
+deploy 先では各 peer dependency が 1 バージョンに定まるので、injection なしでは両者の対応が計算できない。
+
+有効にしても、`apps/api` から見た `packages/contract` は symlink のままで、編集は即座に反映される。
+`dedupeInjectedDeps` が既定で `true` であり、peer dependency の衝突が無い限り symlink が選ばれるためである[^dedupe]。
+クリーン install で実測して確認した。
+
+[^deploy]: [pnpm v10.0.0 リリースノート](https://github.com/pnpm/pnpm/releases/tag/v10.0.0)。symlink で計算できない理由は公式ドキュメントに記述がなく、[Discussion #3938](https://github.com/orgs/pnpm/discussions/3938) でのプロジェクトリードの説明による。
+
+[^dedupe]: [pnpm Workspaces - injectWorkspacePackages](https://pnpm.io/workspaces#injectworkspacepackages)
 
 `biome.json`:
 
