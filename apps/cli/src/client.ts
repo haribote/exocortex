@@ -1,7 +1,9 @@
-import type {
-  ErrorResponse,
-  ReviewRequest,
-  ReviewResponse,
+import {
+  type ErrorResponse,
+  errorResponseSchema,
+  type ReviewRequest,
+  type ReviewResponse,
+  reviewResponseSchema,
 } from '@exocortex/contract'
 
 export interface ClientOptions {
@@ -16,28 +18,54 @@ function isAuthHeaderError(error: ErrorResponse | null): boolean {
   return error?.error === 'unauthorized'
 }
 
+function parseErrorBody(body: unknown): ErrorResponse | null {
+  if (body === null || body === undefined) {
+    return null
+  }
+  const parsed = errorResponseSchema.safeParse(body)
+  if (!parsed.success) {
+    throw new Error(
+      `received an error response that does not match the error contract: ${parsed.error.message}`,
+    )
+  }
+  return parsed.data
+}
+
 export async function requestReview(
   options: ClientOptions,
 ): Promise<ReviewResponse> {
   let request = options.request
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const response = await fetch(`${options.endpoint}/review`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${options.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-
-    if (response.ok) {
-      return (await response.json()) as ReviewResponse
+    let response: Response
+    try {
+      response = await fetch(`${options.endpoint}/review`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${options.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      })
+    } catch (cause) {
+      throw new Error(
+        `could not reach ${options.endpoint}: check that the Windows machine is on, docker compose is running, and EXOCORTEX_ENDPOINT is correct`,
+        { cause },
+      )
     }
 
-    const error = (await response
-      .json()
-      .catch(() => null)) as ErrorResponse | null
+    if (response.ok) {
+      const body = await response.json().catch(() => undefined)
+      const parsed = reviewResponseSchema.safeParse(body)
+      if (!parsed.success) {
+        throw new Error(
+          `received a response that does not match the review contract: ${parsed.error.message}`,
+        )
+      }
+      return parsed.data
+    }
+
+    const error = parseErrorBody(await response.json().catch(() => null))
 
     if (response.status === 400 && isAuthHeaderError(error)) {
       throw new Error(

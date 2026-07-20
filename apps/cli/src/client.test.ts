@@ -302,4 +302,63 @@ describe('requestReview', () => {
       }),
     ).rejects.toThrow(/500/)
   })
+
+  it('throws a distinguishable error when a 200 body does not match the review contract', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ summary: 's', comments: [] })),
+      ),
+    )
+
+    await expect(
+      requestReview({
+        endpoint: 'http://host:11435',
+        token: 't',
+        request: baseRequest,
+      }),
+    ).rejects.toThrow(/contract/i)
+  })
+
+  it('throws a distinguishable error when an error body does not match the error contract', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ message: 'no error field' }), {
+            status: 500,
+          }),
+      ),
+    )
+
+    await expect(
+      requestReview({
+        endpoint: 'http://host:11435',
+        token: 't',
+        request: baseRequest,
+      }),
+    ).rejects.toThrow(/contract/i)
+  })
+
+  it('gives an actionable, endpoint-naming message when fetch itself rejects', async () => {
+    const dnsFailure = new Error('getaddrinfo ENOTFOUND host')
+    const fetchMock = vi.fn(async () => {
+      throw dnsFailure
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const failure = requestReview({
+      endpoint: 'http://host:11435',
+      token: 't',
+      request: baseRequest,
+    })
+
+    await expect(failure).rejects.toThrow(/http:\/\/host:11435/)
+    await failure.catch((error: unknown) => {
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).cause).toBe(dnsFailure)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })

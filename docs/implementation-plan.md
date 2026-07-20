@@ -2938,7 +2938,8 @@ CLI 側でこれを再チェックせず、投げられた `Error` の `message`
 
 先頭の `#!/usr/bin/env node` は TypeScript が `dist/index.js` にそのまま引き継ぐ。
 ただし `tsc` は `dist` をビルドのたびに作り直すため、実行可能ビットは保持されない。
-`chmod +x` は Task 12 の `PATH` 配線の一部として扱い、このリポジトリにはビルド後処理を追加しない。
+Task 12 では `dist/index.js` を直接実行せず、`node` 経由で呼び出すラッパースクリプトを `PATH` に置くため、`dist/index.js` 自身に実行可能ビットは不要である。
+このリポジトリにはビルド後処理を追加しない。
 
 - [ ] **Step 9: テストが通ることを確認してコミットする**
 
@@ -3060,13 +3061,22 @@ git commit -m "docs: add windows setup runbook"
 ```bash
 cd ~/Sites/github.com/haribote/exocortex
 pnpm build
-ln -s "$PWD/apps/cli/dist/index.js" ~/.local/bin/ai-review
-chmod +x apps/cli/dist/index.js
+cat > ~/.local/bin/ai-review <<EOF
+#!/bin/sh
+exec node "$PWD/apps/cli/dist/index.js" "\$@"
+EOF
+chmod +x ~/.local/bin/ai-review
 ```
 
-`tsc` は `dist` をビルドのたびに作り直すため、実行可能ビットはビルドごとに失われる。
-`pnpm build` のあとは毎回 `chmod +x` が要る。
-シンボリックリンクはパスに対して張るため、リンクの張り直しは不要。
+`tsc` は `dist` をビルドのたびに作り直すため、`dist/index.js` に付けた実行可能ビットは次の `pnpm build` で失われる。
+そのため `dist/index.js` を `PATH` へ直接シンボリックリンクする方式は、ビルドのたびに壊れる。
+代わりに実行可能ビットを持つラッパースクリプトを `~/.local/bin/ai-review` に置き、`node` 経由で `dist/index.js` を呼ぶ。
+ラッパーはビルドの対象外なので、実行可能ビットは `pnpm build` の影響を受けない。
+`pnpm link --global` も検討したが、pnpm のグローバル bin ディレクトリが `PATH` に通っていることを前提とするため見送った。
+このツール一つのために利用者のシェル設定を変更させることになる。
+ビルドスクリプト側に `chmod` を足す案もあるが、`chmod` の無い環境で `pnpm build` が失敗するようになるため採用しない。
+`apps/cli` のコードは `node:path` を使い、外部コマンドとしては `git` と `rg` しか呼ばないため、もともと Unix 固有の前提を持たない。
+ラッパーをリポジトリの外に置くことで、この前提をインストール手順にも保つ。
 
 確認: `ai-review --help` が動くこと。
 
