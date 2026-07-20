@@ -1480,6 +1480,11 @@ Expected: PASS
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import type { OllamaChatRequest, OllamaClient } from '../ollama.js'
+import {
+  OllamaResponseError,
+  OllamaTimeoutError,
+  OllamaUnreachableError,
+} from '../ollama.js'
 
 function appWith(ollama: OllamaClient) {
   return createApp({
@@ -1554,8 +1559,59 @@ describe('POST /translate', () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it('returns 504 when ollama times out', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaTimeoutError('ollama request timed out')
+      },
+    })
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
+    })
+    expect(res.status).toBe(504)
+    const body = await res.json()
+    expect(body.error).toBe('inference_timeout')
+  })
+
+  it('returns 503 when ollama is unreachable', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaUnreachableError('down')
+      },
+    })
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
+    })
+    expect(res.status).toBe(503)
+    const body = await res.json()
+    expect(body.error).toBe('ollama_unreachable')
+  })
+
+  it('returns 502 when ollama returns an error response', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaResponseError('ollama returned 500', 500)
+      },
+    })
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
+    })
+    expect(res.status).toBe(502)
+    const body = await res.json()
+    expect(body.error).toBe('ollama_error')
+  })
 })
 ```
+
+`route.ts` は `OllamaResponseError`、`OllamaTimeoutError`、`OllamaUnreachableError` の 3 種を `review/route.ts` と同じ組で捕捉する。
+この 3 つのエラーパスもテストで確認し、エラー文字列とステータスコードが `/review` と一致することを保証する。
 
 - [ ] **Step 6: テストが失敗することを確認する**
 
