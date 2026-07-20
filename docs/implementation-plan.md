@@ -126,7 +126,13 @@ exocortex/
 packages:
   - 'packages/*'
   - 'apps/*'
+
+injectWorkspacePackages: true
 ```
+
+`injectWorkspacePackages` は Task 7 の Dockerfile が使う `pnpm deploy` のために要る。
+pnpm 10 以降、この設定が無い workspace からの `pnpm deploy` は `ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE` で失敗する。
+有効にしても `apps/api` から見た `packages/contract` は symlink のままで、編集は即座に反映される（実測で確認済み）。
 
 `biome.json`:
 
