@@ -51,6 +51,13 @@ describe('docker-compose.yml', () => {
     ).toBeUndefined()
   })
 
+  it('does not put the ollama service on the host network', () => {
+    expect(
+      ollama.network_mode,
+      'ollama must not use "network_mode: host": it publishes every container port to the host without declaring "ports", defeating the same guarantee',
+    ).toBeUndefined()
+  })
+
   it('publishes ai-api on 11435 with matching host and container ports', () => {
     const ports = aiApi.ports
     if (!Array.isArray(ports)) {
