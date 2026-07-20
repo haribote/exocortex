@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createOllamaClient, OllamaUnreachableError } from './ollama.js'
+import {
+  createOllamaClient,
+  OllamaResponseError,
+  OllamaTimeoutError,
+  OllamaUnreachableError,
+} from './ollama.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -79,5 +84,33 @@ describe('createOllamaClient', () => {
     await expect(
       client.chat({ model: 'm', prompt: 'p' }),
     ).rejects.toBeInstanceOf(OllamaUnreachableError)
+  })
+
+  it('throws OllamaTimeoutError when fetch rejects with a TimeoutError', async () => {
+    stubFetch(async () => {
+      throw new DOMException('signal timed out', 'TimeoutError')
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await expect(
+      client.chat({ model: 'm', prompt: 'p' }),
+    ).rejects.toBeInstanceOf(OllamaTimeoutError)
+  })
+
+  it('throws OllamaResponseError with the status when ollama returns a non-2xx response', async () => {
+    stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: 'model not found' }), {
+          status: 500,
+        }),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const error = await client
+      .chat({ model: 'm', prompt: 'p' })
+      .catch((cause: unknown) => cause)
+
+    expect(error).toBeInstanceOf(OllamaResponseError)
+    expect((error as OllamaResponseError).status).toBe(500)
   })
 })

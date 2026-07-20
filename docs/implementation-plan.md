@@ -635,7 +635,7 @@ git commit -m "feat(api): add app skeleton with bearer auth"
 
 **Interfaces:**
 - Consumes: なし
-- Produces: `createOllamaClient(baseUrl: string): OllamaClient`。`OllamaClient` は `chat(request: OllamaChatRequest): Promise<OllamaChatResult>` を持つ。`OllamaChatRequest` は `{ model: string; prompt: string; format?: unknown; temperature?: number }`、`OllamaChatResult` は `{ content: string; totalDurationMs: number }`。到達できない場合は `OllamaUnreachableError`、タイムアウトは `OllamaTimeoutError` を投げる。
+- Produces: `createOllamaClient(baseUrl: string): OllamaClient`。`OllamaClient` は `chat(request: OllamaChatRequest): Promise<OllamaChatResult>` を持つ。`OllamaChatRequest` は `{ model: string; prompt: string; format?: unknown; temperature?: number }`、`OllamaChatResult` は `{ content: string; totalDurationMs: number }`。`fetch` 自体が失敗した場合は `OllamaUnreachableError`、タイムアウトは `OllamaTimeoutError`、Ollama に到達はできたが非 2xx が返った場合は `OllamaResponseError` を投げる。
 
 - [ ] **Step 1: テストを書く**
 
@@ -643,7 +643,12 @@ git commit -m "feat(api): add app skeleton with bearer auth"
 
 ```ts
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { OllamaUnreachableError, createOllamaClient } from './ollama.js'
+import {
+  createOllamaClient,
+  OllamaResponseError,
+  OllamaTimeoutError,
+  OllamaUnreachableError,
+} from './ollama.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -703,6 +708,25 @@ describe('createOllamaClient', () => {
     const client = createOllamaClient('http://ollama:11434')
     await expect(client.chat({ model: 'm', prompt: 'p' })).rejects.toBeInstanceOf(OllamaUnreachableError)
   })
+
+  it('throws OllamaTimeoutError when fetch rejects with a TimeoutError', async () => {
+    stubFetch(async () => {
+      throw new DOMException('signal timed out', 'TimeoutError')
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await expect(client.chat({ model: 'm', prompt: 'p' })).rejects.toBeInstanceOf(OllamaTimeoutError)
+  })
+
+  it('throws OllamaResponseError with the status when ollama returns a non-2xx response', async () => {
+    stubFetch(async () => new Response(JSON.stringify({ error: 'model not found' }), { status: 500 }))
+
+    const client = createOllamaClient('http://ollama:11434')
+    const error = await client.chat({ model: 'm', prompt: 'p' }).catch((cause: unknown) => cause)
+
+    expect(error).toBeInstanceOf(OllamaResponseError)
+    expect((error as OllamaResponseError).status).toBe(500)
+  })
 })
 ```
 
@@ -718,6 +742,15 @@ Expected: FAIL（`./ollama.js` を解決できない）
 ```ts
 export class OllamaUnreachableError extends Error {}
 export class OllamaTimeoutError extends Error {}
+
+export class OllamaResponseError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
 
 export interface OllamaChatRequest {
   model: string
@@ -768,22 +801,44 @@ export function createOllamaClient(baseUrl: string): OllamaClient {
       }
 
       if (!response.ok) {
-        throw new OllamaUnreachableError(`ollama returned ${response.status}`)
+        throw new OllamaResponseError(`ollama returned ${response.status}`, response.status)
       }
 
-      const parsed = (await response.json()) as { message?: { content?: string }; total_duration?: number }
-      return {
-        content: parsed.message?.content ?? '',
-        totalDurationMs: Math.round((parsed.total_duration ?? 0) / 1_000_000),
-      }
+      const parsed: unknown = await response.json()
+      return toChatResult(parsed)
     },
   }
+}
+
+function toChatResult(body: unknown): OllamaChatResult {
+  const record = isRecord(body) ? body : {}
+  const message = isRecord(record.message) ? record.message : {}
+  const content = typeof message.content === 'string' ? message.content : ''
+  const totalDuration = typeof record.total_duration === 'number' ? record.total_duration : 0
+  return {
+    content,
+    totalDurationMs: Math.round(totalDuration / 1_000_000),
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 ```
 
 Ollama が返す `total_duration` の単位はナノ秒である。ミリ秒に直してから外に出す。
 
 タイムアウトを 300 秒と長めに取っているのは、`OLLAMA_MAX_LOADED_MODELS=1` によりモデルの切り替えでロード待ちが挟まるためである。
+
+`OllamaUnreachableError` は「機械が落ちている」ことを、`OllamaResponseError` は「機械は生きているがモデルや推論が失敗した」ことを意味する。
+原因が別であり、呼び出し側が個別に catch できる必要があるため、`OllamaResponseError` は `OllamaUnreachableError` のサブクラスにはせず、どちらも `Error` を直接継承する独立したクラスにする。
+`OllamaResponseError` は呼び出し側が状況を報告できるよう、HTTP ステータスを `status` プロパティで保持する。
+
+`response.json()` の型は `Promise<any>` であり、そのまま `as` でキャストすると Ollama が保証していない形を保証したことにしてしまう。
+`unknown` で受けて `toChatResult` で 1 フィールドずつ型を確認する。
+`message.content` や `total_duration` が想定した形でなくても、`chat` はエラーにせず空文字列や 0 にフォールバックする。
+review・translate のどちらも欠損に対して意味のある回復ができるわけではなく、`format` で構造化出力を強制している通常経路では欠損は起きない想定だからである。
+起きたとしても呼び出し側には空の結果として見え、実害は「レビューコメントが空になる」程度にとどまる。
 
 - [ ] **Step 4: テストが通ることを確認する**
 
@@ -985,7 +1040,7 @@ git commit -m "feat(api): add review prompt builder and size check"
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import type { OllamaChatRequest, OllamaChatResult, OllamaClient } from '../ollama.js'
-import { OllamaUnreachableError } from '../ollama.js'
+import { OllamaResponseError, OllamaUnreachableError } from '../ollama.js'
 
 function fakeOllama(result: OllamaChatResult, capture?: (r: OllamaChatRequest) => void): OllamaClient {
   return {
@@ -1081,6 +1136,22 @@ describe('POST /review', () => {
     expect(res.status).toBe(503)
   })
 
+  it('returns 502 when ollama returns an error response', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaResponseError('ollama returned 500', 500)
+      },
+    })
+    const res = await app.request('/review', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ language: 'typescript', diff: 'd' }),
+    })
+    expect(res.status).toBe(502)
+    const body = await res.json()
+    expect(body.error).toBe('ollama_error')
+  })
+
   it('returns 502 when ollama returns output that violates the schema', async () => {
     const app = appWith(fakeOllama({ content: '{"summary": 1}', totalDurationMs: 0 }))
     const res = await app.request('/review', {
@@ -1105,7 +1176,7 @@ Expected: FAIL（`createApp` が `ollama` を受け取らない）
 ```ts
 import { reviewRequestSchema, reviewResultJsonSchema, reviewResultSchema } from '@exocortex/contract'
 import type { Hono } from 'hono'
-import { OllamaTimeoutError, OllamaUnreachableError, type OllamaClient } from '../ollama.js'
+import { OllamaResponseError, OllamaTimeoutError, OllamaUnreachableError, type OllamaClient } from '../ollama.js'
 import { buildReviewPrompt, checkInputSize } from './prompt.js'
 
 export interface ReviewDeps {
@@ -1148,6 +1219,9 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
       if (cause instanceof OllamaUnreachableError) {
         return c.json({ error: 'ollama_unreachable', message: 'could not reach ollama' }, 503)
       }
+      if (cause instanceof OllamaResponseError) {
+        return c.json({ error: 'ollama_error', message: cause.message }, 502)
+      }
       throw cause
     }
 
@@ -1166,6 +1240,9 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
 ```
 
 `JSON.parse` は `format` による強制があるので通常は成功するが、失敗した場合は例外が Hono の既定ハンドラに落ちて 500 になる。502 で返したい場合は次のステップで扱う。
+
+`ollama_error`（`OllamaResponseError`）と `invalid_model_output`（スキーマ違反）はどちらも 502 を返すが `error` 文字列は別にする。
+どちらも「Ollama には到達したが、返ってきたものが使えない」という同じ意味のステータスであり、原因の違いは `error` フィールドで区別すれば十分だからである。
 
 - [ ] **Step 4: JSON.parse の失敗も 502 にする**
 
@@ -1439,7 +1516,7 @@ Expected: FAIL（`/translate` が 404 を返す）
 ```ts
 import { translateRequestSchema } from '@exocortex/contract'
 import type { Hono } from 'hono'
-import { OllamaTimeoutError, OllamaUnreachableError, type OllamaClient } from '../ollama.js'
+import { OllamaResponseError, OllamaTimeoutError, OllamaUnreachableError, type OllamaClient } from '../ollama.js'
 import { buildTranslatePrompt } from './prompt.js'
 
 export interface TranslateDeps {
@@ -1466,6 +1543,9 @@ export function registerTranslateRoute(app: Hono, deps: TranslateDeps): void {
       }
       if (cause instanceof OllamaUnreachableError) {
         return c.json({ error: 'ollama_unreachable', message: 'could not reach ollama' }, 503)
+      }
+      if (cause instanceof OllamaResponseError) {
+        return c.json({ error: 'ollama_error', message: cause.message }, 502)
       }
       throw cause
     }

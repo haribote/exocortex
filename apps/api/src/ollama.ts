@@ -1,6 +1,15 @@
 export class OllamaUnreachableError extends Error {}
 export class OllamaTimeoutError extends Error {}
 
+export class OllamaResponseError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 export interface OllamaChatRequest {
   model: string
   prompt: string
@@ -50,17 +59,30 @@ export function createOllamaClient(baseUrl: string): OllamaClient {
       }
 
       if (!response.ok) {
-        throw new OllamaUnreachableError(`ollama returned ${response.status}`)
+        throw new OllamaResponseError(
+          `ollama returned ${response.status}`,
+          response.status,
+        )
       }
 
-      const parsed = (await response.json()) as {
-        message?: { content?: string }
-        total_duration?: number
-      }
-      return {
-        content: parsed.message?.content ?? '',
-        totalDurationMs: Math.round((parsed.total_duration ?? 0) / 1_000_000),
-      }
+      const parsed: unknown = await response.json()
+      return toChatResult(parsed)
     },
   }
+}
+
+function toChatResult(body: unknown): OllamaChatResult {
+  const record = isRecord(body) ? body : {}
+  const message = isRecord(record.message) ? record.message : {}
+  const content = typeof message.content === 'string' ? message.content : ''
+  const totalDuration =
+    typeof record.total_duration === 'number' ? record.total_duration : 0
+  return {
+    content,
+    totalDurationMs: Math.round(totalDuration / 1_000_000),
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
