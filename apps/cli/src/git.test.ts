@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { collectDiff, repoRoot } from './git.js'
+import { collectDiff, diffArgs, repoRoot } from './git.js'
 
 let cwd: string
 
@@ -84,5 +84,14 @@ describe('collectDiff', () => {
     expect(() => collectDiff({ cwd, base: 'main', staged: true })).toThrow(
       /mutually exclusive/,
     )
+  })
+})
+
+describe('diffArgs', () => {
+  it('separates the base from options so git cannot read it as a flag', () => {
+    expect(diffArgs({ cwd: '/nowhere', base: 'main' })).toEqual([
+      '--end-of-options',
+      'main...HEAD',
+    ])
   })
 })

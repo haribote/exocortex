@@ -37,7 +37,7 @@ function assertBaseResolves(cwd: string, base: string): void {
   }
 }
 
-function diffArgs(options: DiffOptions): string[] {
+export function diffArgs(options: DiffOptions): string[] {
   if (options.base) {
     return ['--end-of-options', `${options.base}...HEAD`]
   }

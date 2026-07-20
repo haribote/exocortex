@@ -2009,7 +2009,20 @@ describe('collectDiff', () => {
     )
   })
 })
+
+describe('diffArgs', () => {
+  it('separates the base from options so git cannot read it as a flag', () => {
+    expect(diffArgs({ cwd: '/nowhere', base: 'main' })).toEqual([
+      '--end-of-options',
+      'main...HEAD',
+    ])
+  })
+})
 ```
+
+`diffArgs` を export して直接テストするのは、`--end-of-options` を守るためである。
+`collectDiff` 経由のテストでは、危険な `base` が先頭の検査で弾かれてしまい、この層に到達しない。
+テストが無ければ、冗長に見える `--end-of-options` を後から削っても全てのテストが通る。
 
 `git init` の既定ブランチ名は環境により `main` か `master` かで変わるため、`-b main` を明示する。
 `GIT_CONFIG_GLOBAL` と `GIT_CONFIG_SYSTEM` を `/dev/null` に向けるのは、実行環境のグローバル・システム git 設定がテストの挙動に混ざるのを防ぐためである。
@@ -2068,7 +2081,7 @@ function assertBaseResolves(cwd: string, base: string): void {
   }
 }
 
-function diffArgs(options: DiffOptions): string[] {
+export function diffArgs(options: DiffOptions): string[] {
   if (options.base) {
     return ['--end-of-options', `${options.base}...HEAD`]
   }
