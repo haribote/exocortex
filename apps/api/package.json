@@ -1,0 +1,17 @@
+{
+  "name": "@exocortex/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@exocortex/contract": "workspace:*",
+    "@hono/node-server": "^2.0.10",
+    "hono": "^4.12.31",
+    "zod": "^4.4.3"
+  }
+}
