@@ -2869,24 +2869,36 @@ import { collectContext } from './collect.js'
 import { formatReview } from './format.js'
 import { collectDiff, repoRoot } from './git.js'
 
-const { values } = parseArgs({
-  options: {
-    base: { type: 'string' },
-    staged: { type: 'boolean' },
-    json: { type: 'boolean' },
-    language: { type: 'string', default: 'typescript' },
-    help: { type: 'boolean' },
-  },
-})
-
-if (values.help) {
-  console.log(`Usage: ai-review [options]
+const USAGE = `Usage: ai-review [options]
 
   --base <ref>       diff against <ref> instead of the working tree
   --staged           review only staged changes
   --json             print the raw response as JSON
   --language <lang>  language passed to the reviewer (default: typescript)
-  --help             show this message`)
+  --help             show this message`
+
+function parseOptions() {
+  try {
+    return parseArgs({
+      options: {
+        base: { type: 'string' },
+        staged: { type: 'boolean' },
+        json: { type: 'boolean' },
+        language: { type: 'string', default: 'typescript' },
+        help: { type: 'boolean' },
+      },
+    }).values
+  } catch (cause) {
+    console.error(cause instanceof Error ? cause.message : String(cause))
+    console.error(USAGE)
+    process.exit(1)
+  }
+}
+
+const values = parseOptions()
+
+if (values.help) {
+  console.log(USAGE)
   process.exit(0)
 }
 
@@ -2930,6 +2942,10 @@ try {
 `--help` を宣言するのは、`node:util` の `parseArgs` が既定で strict モードであり、宣言していないオプションを渡されると例外を投げるためである。
 Task 12 の確認手順に `ai-review --help` が動くことが含まれているため、ここで対応しておく。
 `values.help` のチェックは環境変数のチェックより前に置き、`--help` だけならトークン未設定でも動くようにする。
+
+`parseArgs` を try で包むのは、strict モードの例外がそのまま外に出ると Node の stack trace が表示されるためである。
+オプション名の打ち間違いや、`--base` に値を渡し忘れる操作は、利用者が最も踏みやすい誤りにあたる。
+そこで stack trace ではなく、一行の説明と使い方を出す。
 
 `repoRoot` と `collectDiff` の呼び出しも `try` に含める。
 `collectDiff` は `base` が git ref に解決できない場合や `base` と `staged` を同時に渡した場合に例外を投げる（Task 8）。

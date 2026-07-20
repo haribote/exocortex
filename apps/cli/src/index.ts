@@ -6,24 +6,36 @@ import { collectContext } from './collect.js'
 import { formatReview } from './format.js'
 import { collectDiff, repoRoot } from './git.js'
 
-const { values } = parseArgs({
-  options: {
-    base: { type: 'string' },
-    staged: { type: 'boolean' },
-    json: { type: 'boolean' },
-    language: { type: 'string', default: 'typescript' },
-    help: { type: 'boolean' },
-  },
-})
-
-if (values.help) {
-  console.log(`Usage: ai-review [options]
+const USAGE = `Usage: ai-review [options]
 
   --base <ref>       diff against <ref> instead of the working tree
   --staged           review only staged changes
   --json             print the raw response as JSON
   --language <lang>  language passed to the reviewer (default: typescript)
-  --help             show this message`)
+  --help             show this message`
+
+function parseOptions() {
+  try {
+    return parseArgs({
+      options: {
+        base: { type: 'string' },
+        staged: { type: 'boolean' },
+        json: { type: 'boolean' },
+        language: { type: 'string', default: 'typescript' },
+        help: { type: 'boolean' },
+      },
+    }).values
+  } catch (cause) {
+    console.error(cause instanceof Error ? cause.message : String(cause))
+    console.error(USAGE)
+    process.exit(1)
+  }
+}
+
+const values = parseOptions()
+
+if (values.help) {
+  console.log(USAGE)
   process.exit(0)
 }
 
