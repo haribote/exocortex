@@ -30,11 +30,12 @@ Mac 上で動くエージェントは推論能力を持たず、LAN の向こう
 ```text
 Mac                                Windows (RTX 5080)
 ─────────────────────────          ──────────────────────────────
-Claude Code ──┐                    WSL2 (Ubuntu)
+Claude Code ──┐                    WSL2 "exocortex" (D:\wsl\exocortex)
               │                      └ Docker Engine + Compose
-Codex ────────┼─→ ai-review CLI        ├─ ai-api  :8080  ← LAN に公開
+Codex ────────┼─→ ai-review CLI        ├─ ai-api  :11435 ← LAN に公開
               │                        └─ ollama  :11434 ← 非公開
 shell ────────┘
+                                   ComfyUI (Windows native) ← GPU を共有
 ```
 
 Mac 側の CLI が git diff と関連ファイルを集めて送り、Windows 側の API がプロンプトの生成と推論、結果の整形を担います。

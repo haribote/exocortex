@@ -31,7 +31,7 @@ pnpm lint           # Biome
 pnpm build          # tsc
 ```
 
-Docker は Windows/WSL2 側でのみ動かす。
+Docker は Windows/WSL2 側でのみ動かす。動かす先は exocortex 専用の WSL ディストロ（`D:\wsl\exocortex`）で、既存のディストロは使わない。
 
 ```bash
 docker compose up -d
@@ -43,6 +43,10 @@ docker compose logs -f ai-api
 **Ollama を LAN に公開しない。** `docker-compose.yml` の `ollama` サービスに `ports:` を書かない。外部に出すのは `ai-api` だけ。
 
 **context の上限は 32K トークン。** VRAM 16GB の制約による。超過時は 413 を返す。黙って切り詰めない。
+
+**`ai-api` のポートは 11435。** コンテナの内と外で同じ番号を使う。8080 は mirrored networking mode で Windows 側と衝突しうるため使わない。49152 以降は ephemeral port range なので避ける。
+
+**GPU は Windows ネイティブの ComfyUI と共有する。** 両者のモデルを同時にロードできない。競合してもエラーにならず静かに遅くなるため、`ollama ps` の `PROCESSOR` 列を日常的に確認する。調停は `OLLAMA_KEEP_ALIVE`（`5m`）だけで行い、自動で譲り合う仕組みは作らない。
 
 **translategemma は system prompt が効かない。** 公式指定の英文テンプレートを user メッセージ 1 通に組み立てる。訳文の直前に空行を 2 つ置く指定まで含む。この癖は `apps/api` の中に閉じ込め、CLI に漏らさない。
 

@@ -21,6 +21,9 @@
 - コミットは Conventional Commits 形式。英語、命令形、小文字始まり、末尾ピリオドなし。絵文字と AI co-author credits を含めない。
 - `docker-compose.yml` の `ollama` サービスに `ports:` を書かない。Ollama を LAN に公開しない。
 - context の上限は 32768 トークン。うち 4096 を出力用に予約し、入力の上限は 28672 とする。
+- `ai-api` のポートは 11435。コンテナの内と外で同じ番号を使う。8080 は mirrored networking mode で Windows 側と衝突しうるため使わない。
+- Windows 側は exocortex 専用の WSL ディストロ（`D:\wsl\exocortex`）で動かす。既存のディストロを使わない。
+- `OLLAMA_KEEP_ALIVE` は `5m`。GPU を Windows ネイティブの ComfyUI と共有するため。
 
 ---
 
@@ -592,7 +595,7 @@ if (!apiToken) {
   throw new Error('API_TOKEN is required')
 }
 
-const port = Number(process.env.PORT ?? 8080)
+const port = Number(process.env.PORT ?? 11435)
 const app = createApp({ apiToken })
 
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' })
@@ -1228,7 +1231,7 @@ if (!apiToken) {
 
 const ollamaUrl = process.env.OLLAMA_URL ?? 'http://ollama:11434'
 const reviewModel = process.env.REVIEW_MODEL ?? 'qwen2.5-coder:14b'
-const port = Number(process.env.PORT ?? 8080)
+const port = Number(process.env.PORT ?? 11435)
 
 const app = createApp({ apiToken, ollama: createOllamaClient(ollamaUrl), reviewModel })
 
@@ -1504,7 +1507,7 @@ if (!apiToken) {
 const ollamaUrl = process.env.OLLAMA_URL ?? 'http://ollama:11434'
 const reviewModel = process.env.REVIEW_MODEL ?? 'qwen2.5-coder:14b'
 const translateModel = process.env.TRANSLATE_MODEL ?? 'translategemma:12b'
-const port = Number(process.env.PORT ?? 8080)
+const port = Number(process.env.PORT ?? 11435)
 
 const app = createApp({
   apiToken,
@@ -1538,7 +1541,7 @@ git commit -m "feat(api): add translate endpoint"
 
 **Interfaces:**
 - Consumes: `apps/api` のビルド成果物
-- Produces: `docker compose up -d` で `ai-api` が 8080 で応答する構成
+- Produces: `docker compose up -d` で `ai-api` が 11435 で応答する構成
 
 - [ ] **Step 1: Dockerfile を書く**
 
@@ -1561,7 +1564,7 @@ FROM node:24-slim
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /deploy .
-EXPOSE 8080
+EXPOSE 11435
 CMD ["node", "dist/index.js"]
 ```
 
@@ -1588,7 +1591,7 @@ services:
       OLLAMA_MAX_LOADED_MODELS: 1
       OLLAMA_FLASH_ATTENTION: 1
       OLLAMA_KV_CACHE_TYPE: q8_0
-      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_KEEP_ALIVE: 5m
     deploy:
       resources:
         reservations:
@@ -1603,7 +1606,7 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "11435:11435"
     environment:
       OLLAMA_URL: http://ollama:11434
       API_TOKEN: ${API_TOKEN}
@@ -1617,6 +1620,10 @@ volumes:
 ```
 
 `ollama` に `ports:` が無いことを確認する。あると Ollama の API が LAN に露出する。
+
+`ollama` の volume は named volume のままでよい。このディストロ自体が D: に置かれているため、named volume の実体も D: に載る。保存先を compose に書く必要はない。
+
+`OLLAMA_KEEP_ALIVE` が `5m` なのは、同じ GPU を Windows ネイティブの ComfyUI と共有するためである。理由は `docs/design.md` の「GPU の共有」にある。
 
 - [ ] **Step 3: .env.example を書く**
 
@@ -2165,7 +2172,7 @@ describe('requestReview', () => {
       return new Response(JSON.stringify(okBody))
     }))
 
-    await requestReview({ endpoint: 'http://host:8080', token: 'secret', request: baseRequest })
+    await requestReview({ endpoint: 'http://host:11435', token: 'secret', request: baseRequest })
     expect(headers?.get('Authorization')).toBe('Bearer secret')
   })
 
@@ -2188,7 +2195,7 @@ describe('requestReview', () => {
       return new Response(JSON.stringify(okBody))
     }))
 
-    const result = await requestReview({ endpoint: 'http://host:8080', token: 't', request: baseRequest })
+    const result = await requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest })
 
     expect(sentFiles[0]).toEqual(['big.ts', 'small.ts'])
     expect(sentFiles[1]).toEqual(['small.ts'])
@@ -2204,7 +2211,7 @@ describe('requestReview', () => {
     ))
 
     await expect(
-      requestReview({ endpoint: 'http://host:8080', token: 't', request: baseRequest }),
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
     ).rejects.toThrow(/context/)
   })
 
@@ -2214,7 +2221,7 @@ describe('requestReview', () => {
     ))
 
     await expect(
-      requestReview({ endpoint: 'http://host:8080', token: 'wrong', request: baseRequest }),
+      requestReview({ endpoint: 'http://host:11435', token: 'wrong', request: baseRequest }),
     ).rejects.toThrow(/token/i)
   })
 })
@@ -2462,17 +2469,37 @@ git commit -m "feat(cli): add api client, output formatting and entrypoint"
 
 `docs/setup-windows.md` に次を順に記す。各手順に確認コマンドを添える。
 
-1. **WSL2 の networking を mirrored にする。** `C:\Users\<user>\.wslconfig` に `[wsl2]` セクションを作り `networkingMode=mirrored` を書く。`wsl --shutdown` で反映する。Windows 11 22H2 以降が必要。
-2. **Hyper-V ファイアウォールで受信を許可する。** 管理者権限の PowerShell で実行する。
+1. **WSL のバージョンを確認する。** `wsl --version` を実行する。systemd に 0.67.6 以降が必要である。`--location` は公式にオプションの記載はあるが導入バージョンの記載が無いため、次の手順で失敗した場合は `wsl --import` に切り替える。
+2. **exocortex 専用のディストロを D: に新設する。** 既存のディストロには触れない。
+
+```powershell
+wsl --install -d Ubuntu --location D:\wsl\exocortex
+```
+
+`--location` が使えない場合は、rootfs の tar を用意して `wsl --import exocortex D:\wsl\exocortex <rootfs.tar> --version 2` を使う。
+
+確認: `wsl -l -v` に新しいディストロが表示され、`VERSION` が 2 であること。
+
+3. **systemd を有効にする。** 新ディストロの `/etc/wsl.conf` に次を書き、`wsl --shutdown` で再起動する。Docker が systemd を必要とする。
+
+```ini
+[boot]
+systemd=true
+```
+
+確認: 再起動後に `systemctl status` が動くこと。
+
+4. **WSL2 の networking を mirrored にする。** `C:\Users\<user>\.wslconfig` に `[wsl2]` セクションを作り `networkingMode=mirrored` を書く。`wsl --shutdown` で反映する。Windows 11 22H2 以降が必要。この設定は全ディストロに効く。
+5. **Hyper-V ファイアウォールで受信を許可する。** 管理者権限の PowerShell で実行する。
 
 ```powershell
 Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
 ```
 
-3. **WSL2 の Ubuntu に Docker Engine を入れる。** Docker Desktop は使わない。公式の apt リポジトリから `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-compose-plugin` を入れる。確認: `docker run --rm hello-world`
-4. **nvidia-container-toolkit を入れる。** 確認: `docker run --rm --gpus all ubuntu nvidia-smi` で RTX 5080 が見えること。ドライバは 550 以降が必要。
-5. **リポジトリを clone し `.env` を作る。** `API_TOKEN` は `openssl rand -hex 32` で生成する。
-6. **起動してモデルを取得する。**
+6. **新ディストロに Docker Engine を入れる。** Docker Desktop は使わない。公式の apt リポジトリから `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-compose-plugin` を入れる。確認: `docker run --rm hello-world`
+7. **nvidia-container-toolkit を入れる。** 確認: `docker run --rm --gpus all ubuntu nvidia-smi` で RTX 5080 が見えること。ドライバは 550 以降が必要。
+8. **リポジトリを clone し `.env` を作る。** clone 先はこのディストロ内のホームディレクトリにする。`/mnt/c` や `/mnt/d` に置かない。`API_TOKEN` は `openssl rand -hex 32` で生成する。
+9. **起動してモデルを取得する。**
 
 ```bash
 docker compose up -d
@@ -2480,7 +2507,7 @@ docker compose exec ollama ollama pull qwen2.5-coder:14b
 docker compose exec ollama ollama pull translategemma:12b
 ```
 
-7. **VRAM の実測を行う。** ここが設計上の懸念点である。
+10. **VRAM の実測を行う。** ここが設計上の懸念点である。**ComfyUI を終了させた状態で行う。** 起動したままだと GPU が奪われ、この計測の意味が失われる。
 
 ```bash
 docker compose exec ollama ollama ps
@@ -2488,10 +2515,12 @@ docker compose exec ollama ollama ps
 
 `SIZE` 列がロード済みの総メモリ量、`CONTEXT` 列が実際に割り当てられた context 長を示す。`CONTEXT` が 32768 になっていること、`PROCESSOR` が `100% GPU` であることを確認する。`100% CPU` や部分ロードになっている場合は VRAM に収まっていない。その場合の対処は `docs/design.md` の「context 長と KV cache」に記した順序で試す。
 
-8. **Mac から疎通を確認する。**
+11. **モデルのロード時間を測る。** `OLLAMA_KEEP_ALIVE` を `5m` にした判断の代償にあたる。`docker compose restart ollama` の直後に 1 回目のレビューを投げ、`meta.durationMs` を記録する。2 回目以降との差がロード時間である。D: の NVMe から読むため十数秒以内に収まる想定だが、未実測である。
+
+12. **Mac から疎通を確認する。**
 
 ```bash
-curl http://<windows-ip>:8080/health
+curl http://<windows-ip>:11435/health
 ```
 
 - [ ] **Step 2: 実機で手順どおりに構築する**
@@ -2501,7 +2530,7 @@ runbook を上から実行する。詰まった箇所は runbook 側を直す。
 - [ ] **Step 3: Mac から一度レビューを走らせる**
 
 ```bash
-export EXOCORTEX_ENDPOINT=http://<windows-ip>:8080
+export EXOCORTEX_ENDPOINT=http://<windows-ip>:11435
 export EXOCORTEX_TOKEN=<token>
 cd ~/Sites/github.com/haribote/exocortex
 pnpm --filter @exocortex/cli build
@@ -2577,7 +2606,8 @@ git commit -m "feat: add ai-review skill"
 ## 完了の基準
 
 - `pnpm lint && pnpm test && pnpm build` がすべて通る。
-- Windows 側で `docker compose up -d` が成功し、`ollama ps` の `PROCESSOR` が `100% GPU`、`CONTEXT` が 32768 である。
+- Windows 側に exocortex 専用の WSL ディストロが `D:\wsl\exocortex` に存在し、`wsl -l -v` で `VERSION 2` として見える。
+- Windows 側で `docker compose up -d` が成功し、`ollama ps` の `PROCESSOR` が `100% GPU`、`CONTEXT` が 32768 である（ComfyUI を終了した状態で確認する）。
 - Mac から `ai-review --base main` を実行してレビュー結果が返る。
 - Mac から `/translate` に日本語を投げて英訳が返る。
 - `docs/setup-windows.md` の手順が、実機で上から順に通ることを確認済みである。
