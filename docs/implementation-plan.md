@@ -540,16 +540,21 @@ Expected: FAIL（`./app.js` を解決できない）
 
 `apps/api/src/auth.ts`:
 
+トークン比較を hono/bearer-auth に委ねるのは、タイミング攻撃に対して安全な定数時間比較を自前実装せずに得るためである。
+
 ```ts
-import { createMiddleware } from 'hono/factory'
+import { bearerAuth as honoBearerAuth } from 'hono/bearer-auth'
 
 export function bearerAuth(expectedToken: string) {
-  return createMiddleware(async (c, next) => {
-    const header = c.req.header('Authorization')
-    if (header !== `Bearer ${expectedToken}`) {
-      return c.json({ error: 'unauthorized', message: 'invalid or missing bearer token' }, 401)
-    }
-    await next()
+  const message = {
+    error: 'unauthorized',
+    message: 'invalid or missing bearer token',
+  }
+  return honoBearerAuth({
+    token: expectedToken,
+    noAuthenticationHeader: { message },
+    invalidAuthenticationHeader: { message },
+    invalidToken: { message },
   })
 }
 ```
