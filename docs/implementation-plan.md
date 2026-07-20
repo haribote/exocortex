@@ -1878,7 +1878,7 @@ git commit -m "chore: add docker compose setup"
 
 **Interfaces:**
 - Consumes: なし
-- Produces: `collectDiff(options: DiffOptions): DiffResult`。`DiffOptions` は `{ cwd: string; base?: string; staged?: boolean }`、`DiffResult` は `{ diff: string; changedFiles: string[] }`。`repoRoot(cwd: string): string`
+- Produces: `collectDiff(options: DiffOptions): DiffResult`。`DiffOptions` は `{ cwd: string; base?: string; staged?: boolean }`、`DiffResult` は `{ diff: string; changedFiles: string[] }`。`repoRoot(cwd: string): string`。`base` が `-` で始まる、既存の ref に解決できない、または `staged` と同時に指定された場合は `collectDiff` が例外を投げる。
 
 - [ ] **Step 1: パッケージの雛形を作る**
 
@@ -1922,21 +1922,27 @@ git commit -m "chore: add docker compose setup"
 
 ```ts
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { collectDiff, repoRoot } from './git.js'
 
 let cwd: string
 
-function git(...args: string[]): void {
-  execFileSync('git', args, { cwd })
+const isolatedEnv = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_SYSTEM: '/dev/null',
+}
+
+function git(...args: string[]): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env: isolatedEnv })
 }
 
 beforeEach(() => {
   cwd = mkdtempSync(join(tmpdir(), 'exocortex-git-'))
-  git('init', '-q')
+  git('init', '-q', '-b', 'main')
   git('config', 'user.email', 'test@example.com')
   git('config', 'user.name', 'test')
   writeFileSync(join(cwd, 'a.ts'), 'export const a = 1\n')
@@ -1944,9 +1950,13 @@ beforeEach(() => {
   git('commit', '-qm', 'initial')
 })
 
+afterEach(() => {
+  rmSync(cwd, { recursive: true, force: true })
+})
+
 describe('repoRoot', () => {
   it('returns the repository root', () => {
-    expect(repoRoot(cwd)).toBe(execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim())
+    expect(repoRoot(cwd)).toBe(git('rev-parse', '--show-toplevel').trim())
   })
 })
 
@@ -1980,10 +1990,47 @@ describe('collectDiff', () => {
     const result = collectDiff({ cwd, base: 'main' })
     expect(result.changedFiles).toEqual(['c.ts'])
   })
+
+  it('rejects a base that git would read as a flag, without writing any file it names', () => {
+    const filesBefore = readdirSync(cwd)
+    expect(() => collectDiff({ cwd, base: '--output=./pwned.txt' })).toThrow()
+    expect(readdirSync(cwd)).toEqual(filesBefore)
+  })
+
+  it('rejects a base that does not resolve to a git ref, with a clear error', () => {
+    expect(() => collectDiff({ cwd, base: 'does-not-exist' })).toThrow(
+      /does not resolve/,
+    )
+  })
+
+  it('rejects base and staged given together', () => {
+    expect(() => collectDiff({ cwd, base: 'main', staged: true })).toThrow(
+      /mutually exclusive/,
+    )
+  })
+})
+
+describe('diffArgs', () => {
+  it('separates the base from options so git cannot read it as a flag', () => {
+    expect(diffArgs({ cwd: '/nowhere', base: 'main' })).toEqual([
+      '--end-of-options',
+      'main...HEAD',
+    ])
+  })
 })
 ```
 
-`git init` の既定ブランチ名が環境により `main` か `master` かで変わる。テストが落ちる場合は `git('init', '-q', '-b', 'main')` に変える。
+`diffArgs` を export して直接テストするのは、`--end-of-options` を守るためである。
+`collectDiff` 経由のテストでは、危険な `base` が先頭の検査で弾かれてしまい、この層に到達しない。
+テストが無ければ、冗長に見える `--end-of-options` を後から削っても全てのテストが通る。
+
+`git init` の既定ブランチ名は環境により `main` か `master` かで変わるため、`-b main` を明示する。
+`GIT_CONFIG_GLOBAL` と `GIT_CONFIG_SYSTEM` を `/dev/null` に向けるのは、実行環境のグローバル・システム git 設定がテストの挙動に混ざるのを防ぐためである。
+`afterEach` で一時リポジトリを削除するのは、テストのたびに一時ディレクトリが残り続けるのを防ぐためである。
+末尾の 3 件は、レビューで指摘された 2 つの問題を閉じるために追加した。
+1 件目は `base` に `git diff` がオプションとして読んでしまう文字列（`--output=./pwned.txt`）を渡す攻撃を実際に構成し、例外が投げられ、かつ狙われたファイルが書き出されていないことまで確認する。
+2 件目は存在しない `base` を渡したときに、git の生の stderr ではなく意味のあるエラーが返ることを確認する。
+3 件目は `base` と `staged` を両方渡したときに、片方が無言で無視されずエラーになることを確認する。
 
 - [ ] **Step 3: テストが失敗することを確認する**
 
@@ -2009,16 +2056,34 @@ export interface DiffResult {
 }
 
 function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
 }
 
 export function repoRoot(cwd: string): string {
   return git(cwd, ['rev-parse', '--show-toplevel']).trim()
 }
 
-function diffArgs(options: DiffOptions): string[] {
+function assertNotFlagLike(base: string): void {
+  if (base.startsWith('-')) {
+    throw new Error(`base must not start with '-': ${base}`)
+  }
+}
+
+function assertBaseResolves(cwd: string, base: string): void {
+  try {
+    git(cwd, ['rev-parse', '--verify', '--end-of-options', base])
+  } catch {
+    throw new Error(`base does not resolve to a git ref: ${base}`)
+  }
+}
+
+export function diffArgs(options: DiffOptions): string[] {
   if (options.base) {
-    return [`${options.base}...HEAD`]
+    return ['--end-of-options', `${options.base}...HEAD`]
   }
   if (options.staged) {
     return ['--cached']
@@ -2027,6 +2092,14 @@ function diffArgs(options: DiffOptions): string[] {
 }
 
 export function collectDiff(options: DiffOptions): DiffResult {
+  if (options.base && options.staged) {
+    throw new Error('base and staged are mutually exclusive')
+  }
+  if (options.base) {
+    assertNotFlagLike(options.base)
+    assertBaseResolves(options.cwd, options.base)
+  }
+
   const args = diffArgs(options)
   const diff = git(options.cwd, ['diff', ...args])
   const names = git(options.cwd, ['diff', '--name-only', ...args])
@@ -2040,6 +2113,24 @@ export function collectDiff(options: DiffOptions): DiffResult {
 
 `base` を指定した場合に `...` を使うのは、分岐点からの差分を見るためである。`..` にすると base 側の進行分まで差分に含まれ、自分が書いていない変更をレビューさせることになる。
 
+`base` は Task 10 で `--base` フラグとして CLI の引数から渡ってくる。
+つまり利用者が自由な文字列を渡せるということであり、`execFileSync` が配列で引数を渡していてもシェルインジェクションが防げるだけで、git 自身へのフラグインジェクションは防げない。
+たとえば `base` に `--output=./pwned.txt` を渡すと、`git diff` はこれを独自の `--output` オプションとして解釈し、diff を標準出力の代わりに指定したファイルへ書き出してしまう。
+これを塞ぐために 2 つの防御を重ねる。
+まず `base` が `-` で始まる文字列を無条件に拒否する。
+これは呼び出し側に何が問題だったかを伝えられる、最もわかりやすいメッセージを返せる方法である。
+次に `git diff` と `git rev-parse` の呼び出しで `--end-of-options` を使う。
+これ以降の引数はどんな綴りであっても常にオプションではなく値として扱われるため、先頭 `-` の判定が見落とす綴りに対する保険になる。
+`--end-of-options` は git 2.24 で追加された機能であり、この環境の `git --version`（2.55.0）で動作することを確認している。
+最後に `git rev-parse --verify` で `base` が実在する ref に解決できるかを事前に確認する。
+これを怠ると、存在しない `base` を渡したときに git の生の stderr を含んだ Node のエラーがそのまま利用者に見えてしまう。
+検証に使うこの `rev-parse` 呼び出し自体にも `--end-of-options` を付ける。
+検証コマンドがインジェクション可能なままでは、検証する意味がない。
+
+`base` と `staged` を両方渡された場合は、これまで `base` が無条件に優先され `staged` は無言で無視されていた。
+Task 10 では両方が別々のフラグ（`--base` と `--staged`）として渡ってくるため、利用者が両方指定すると入力の半分が気づかれないまま捨てられる。
+この判定を `collectDiff` の入口に置くのは、引数パーサではなく `collectDiff` 自身に置くことで、将来の呼び出し側がこの組み合わせを再現できないようにするためである。
+
 - [ ] **Step 5: テストが通ることを確認してコミットする**
 
 Run: `pnpm --filter @exocortex/cli test`
@@ -2048,6 +2139,19 @@ Expected: PASS
 ```bash
 git add apps/cli
 git commit -m "feat(cli): add git diff collection"
+```
+
+- [ ] **Step 6: レビュー指摘を受けて base を検証し、コミットする**
+
+Finding 1（`base` によるフラグインジェクション）と Finding 2（`base` と `staged` の同時指定で `staged` が無言で無視される問題）への対応。
+Step 2 のテストと Step 4 の実装は、この対応を反映した最終形をすでに示している。
+
+Run: `pnpm --filter @exocortex/cli exec vitest run src/git.test.ts && pnpm lint && pnpm test && pnpm build`
+Expected: すべて PASS
+
+```bash
+git add apps/cli/src/git.ts apps/cli/src/git.test.ts docs/implementation-plan.md
+git commit -m "fix(cli): validate diff base and reject base with staged"
 ```
 
 ---
