@@ -542,7 +542,9 @@ Expected: FAIL（`./app.js` を解決できない）
 
 トークン比較を hono/bearer-auth に委ねるのは、タイミング攻撃に対して安全な定数時間比較を自前実装せずに得るためである。
 
-構文的に不正な Authorization ヘッダーは 401 ではなく 400 を返す。これは middleware 内部にハードコードされた挙動で設定では変更できないが、レスポンスボディはどの失敗ケースでも同一である。
+構文的に不正な Authorization ヘッダーは 401 ではなく 400 を返す。
+これは middleware 内部にハードコードされた挙動で、設定では変更できない。
+レスポンスボディはどの失敗ケースでも同一である。
 
 ```ts
 import { bearerAuth as honoBearerAuth } from 'hono/bearer-auth'
