@@ -9,12 +9,14 @@ if (!apiToken) {
 
 const ollamaUrl = process.env.OLLAMA_URL ?? 'http://ollama:11434'
 const reviewModel = process.env.REVIEW_MODEL ?? 'qwen2.5-coder:14b'
+const translateModel = process.env.TRANSLATE_MODEL ?? 'translategemma:12b'
 const port = Number(process.env.PORT ?? 11435)
 
 const app = createApp({
   apiToken,
   ollama: createOllamaClient(ollamaUrl),
   reviewModel,
+  translateModel,
 })
 
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' })

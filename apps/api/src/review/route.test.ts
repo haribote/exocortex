@@ -30,6 +30,7 @@ function appWith(ollama: OllamaClient) {
     apiToken: 'secret',
     ollama,
     reviewModel: 'qwen2.5-coder:14b',
+    translateModel: 'test-translate-model',
   })
 }
 

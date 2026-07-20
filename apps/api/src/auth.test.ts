@@ -12,6 +12,7 @@ const app = createApp({
   apiToken: 'secret',
   ollama: noopOllama,
   reviewModel: 'test-model',
+  translateModel: 'test-translate-model',
 })
 
 const UNAUTHORIZED_BODY = {
