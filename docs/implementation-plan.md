@@ -132,7 +132,7 @@ packages:
 ```json
 {
   "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
-  "files": { "includes": ["**/*.ts", "**/*.json"] },
+  "files": { "includes": ["**/*.ts", "**/*.json", "!**/dist"] },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
   "linter": { "enabled": true, "rules": { "recommended": true } },
   "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" } }
