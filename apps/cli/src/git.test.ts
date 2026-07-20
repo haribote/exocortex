@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -66,5 +66,23 @@ describe('collectDiff', () => {
     git('commit', '-qm', 'add c')
     const result = collectDiff({ cwd, base: 'main' })
     expect(result.changedFiles).toEqual(['c.ts'])
+  })
+
+  it('rejects a base that git would read as a flag, without writing any file it names', () => {
+    const filesBefore = readdirSync(cwd)
+    expect(() => collectDiff({ cwd, base: '--output=./pwned.txt' })).toThrow()
+    expect(readdirSync(cwd)).toEqual(filesBefore)
+  })
+
+  it('rejects a base that does not resolve to a git ref, with a clear error', () => {
+    expect(() => collectDiff({ cwd, base: 'does-not-exist' })).toThrow(
+      /does not resolve/,
+    )
+  })
+
+  it('rejects base and staged given together', () => {
+    expect(() => collectDiff({ cwd, base: 'main', staged: true })).toThrow(
+      /mutually exclusive/,
+    )
   })
 })
