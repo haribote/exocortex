@@ -1,4 +1,8 @@
-import type { ReviewRequest } from '@exocortex/contract'
+import {
+  estimateTokens,
+  MAX_INPUT_TOKENS,
+  type ReviewRequest,
+} from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
 import { buildReviewPrompt, checkInputSize } from './prompt.js'
 
@@ -61,7 +65,7 @@ describe('checkInputSize', () => {
     )
     expect(check.ok).toBe(false)
     if (!check.ok) {
-      expect(check.oversizedFiles[0]?.path).toBe('big.ts')
+      expect(check.contextFiles[0]?.path).toBe('big.ts')
     }
   })
 
@@ -78,10 +82,76 @@ describe('checkInputSize', () => {
     )
     expect(check.ok).toBe(false)
     if (!check.ok) {
-      expect(check.oversizedFiles.map((f) => f.path)).toEqual([
+      expect(check.contextFiles.map((f) => f.path)).toEqual([
         'big.ts',
         'small.ts',
       ])
+    }
+  })
+
+  it('estimates a file token cost including its wrapper, not just its content', () => {
+    const check = checkInputSize(
+      makeRequest({
+        context: {
+          files: [
+            { path: 'a.ts', content: 'x'.repeat(200_000) },
+            { path: 'b.ts', content: 'y' },
+          ],
+        },
+      }),
+    )
+    expect(check.ok).toBe(false)
+    if (!check.ok) {
+      const b = check.contextFiles.find((f) => f.path === 'b.ts')
+      expect(b?.estimatedTokens).toBeGreaterThan(estimateTokens('y'))
+    }
+  })
+
+  it('accepts a request whose estimated tokens land exactly on the budget', () => {
+    const emptyRequest = makeRequest({
+      context: { files: [{ path: 'a.ts', content: '' }] },
+    })
+    const baseLength = buildReviewPrompt(emptyRequest).length
+    const targetLength = MAX_INPUT_TOKENS * 3
+    const padded = makeRequest({
+      context: {
+        files: [
+          { path: 'a.ts', content: 'x'.repeat(targetLength - baseLength) },
+        ],
+      },
+    })
+
+    expect(estimateTokens(buildReviewPrompt(padded))).toBe(MAX_INPUT_TOKENS)
+    const check = checkInputSize(padded)
+    expect(check.ok).toBe(true)
+  })
+
+  it('rejects a request whose estimated tokens land one over the budget', () => {
+    const emptyRequest = makeRequest({
+      context: { files: [{ path: 'a.ts', content: '' }] },
+    })
+    const baseLength = buildReviewPrompt(emptyRequest).length
+    const targetLength = MAX_INPUT_TOKENS * 3 + 1
+    const padded = makeRequest({
+      context: {
+        files: [
+          { path: 'a.ts', content: 'x'.repeat(targetLength - baseLength) },
+        ],
+      },
+    })
+
+    expect(estimateTokens(buildReviewPrompt(padded))).toBe(MAX_INPUT_TOKENS + 1)
+    const check = checkInputSize(padded)
+    expect(check.ok).toBe(false)
+  })
+
+  it('returns an empty file list when the diff alone overflows the budget', () => {
+    const check = checkInputSize(
+      makeRequest({ diff: 'x'.repeat(200_000), context: { files: [] } }),
+    )
+    expect(check.ok).toBe(false)
+    if (!check.ok) {
+      expect(check.contextFiles).toEqual([])
     }
   })
 })
