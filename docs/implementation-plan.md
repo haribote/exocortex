@@ -113,6 +113,7 @@ exocortex/
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.4",
+    "@types/node": "^24.13.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
@@ -477,11 +478,13 @@ git commit -m "feat(contract): add request and response schemas"
 ```json
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "./dist", "rootDir": "./src" },
+  "compilerOptions": { "outDir": "./dist", "rootDir": "./src", "types": ["node"] },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
 }
 ```
+
+`types` の明示が要る。`@types/node` をルートの devDependencies に置いても、これが無いと `index.ts` の `process.env` が `TS2591: Cannot find name 'process'` になる。
 
 - [ ] **Step 2: 認証のテストを書く**
 
@@ -1688,11 +1691,13 @@ git commit -m "chore: add docker compose setup"
 ```json
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "./dist", "rootDir": "./src" },
+  "compilerOptions": { "outDir": "./dist", "rootDir": "./src", "types": ["node"] },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
 }
 ```
+
+`types` の明示が要る。`@types/node` をルートの devDependencies に置いても、これが無いと `process` や `node:child_process` の型が解決できない。
 
 - [ ] **Step 2: テストを書く**
 
