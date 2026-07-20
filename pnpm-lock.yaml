@@ -40,6 +40,12 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  apps/cli:
+    dependencies:
+      '@exocortex/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
+
   packages/contract:
     dependencies:
       zod:
