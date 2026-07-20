@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app.js'
+import type { OllamaClient } from './ollama.js'
 
-const app = createApp({ apiToken: 'secret' })
+const noopOllama: OllamaClient = {
+  async chat() {
+    return { content: '{"summary":"","comments":[]}', totalDurationMs: 0 }
+  },
+}
+
+const app = createApp({
+  apiToken: 'secret',
+  ollama: noopOllama,
+  reviewModel: 'test-model',
+})
 
 const UNAUTHORIZED_BODY = {
   error: 'unauthorized',
