@@ -93,7 +93,7 @@ exocortex/
 
 **Interfaces:**
 - Consumes: なし（最初のタスク）
-- Produces: `ReviewRequest`, `ReviewResponse`, `ReviewComment`, `ReviewResult`, `Severity`, `ContextFile`, `LanguageCode`, `TranslateRequest`, `TranslateResponse`, `ErrorResponse`, `OversizedFile` の型。`reviewRequestSchema`, `reviewResultSchema`, `reviewResponseSchema`, `translateRequestSchema`, `translateResponseSchema`, `errorResponseSchema` の Zod schema。`reviewResultJsonSchema`（Ollama の `format` に渡す JSON Schema）。定数 `MAX_CONTEXT_TOKENS`, `RESERVED_OUTPUT_TOKENS`, `MAX_INPUT_TOKENS`, `PROMPT_OVERHEAD_TOKENS`, `CLI_CONTEXT_BUDGET_TOKENS`。関数 `estimateTokens(text: string): number`
+- Produces: `ReviewRequest`, `ReviewResponse`, `ReviewComment`, `ReviewResult`, `Severity`, `ContextFile`, `LanguageCode`, `TranslateRequest`, `TranslateResponse`, `ErrorResponse`, `ContextFileSize` の型。`reviewRequestSchema`, `reviewResultSchema`, `reviewResponseSchema`, `translateRequestSchema`, `translateResponseSchema`, `errorResponseSchema` の Zod schema。`reviewResultJsonSchema`（Ollama の `format` に渡す JSON Schema）。定数 `MAX_CONTEXT_TOKENS`, `RESERVED_OUTPUT_TOKENS`, `MAX_INPUT_TOKENS`, `PROMPT_OVERHEAD_TOKENS`, `CLI_CONTEXT_BUDGET_TOKENS`。関数 `estimateTokens(text: string): number`
 
 - [ ] **Step 1: workspace の土台を作る**
 
@@ -402,7 +402,7 @@ export type TranslateResponse = z.infer<typeof translateResponseSchema>
 ```ts
 import * as z from 'zod'
 
-export const oversizedFileSchema = z.object({
+export const contextFileSizeSchema = z.object({
   path: z.string(),
   estimatedTokens: z.number().int(),
 })
@@ -410,12 +410,15 @@ export const oversizedFileSchema = z.object({
 export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),
-  oversizedFiles: z.array(oversizedFileSchema).optional(),
+  contextFiles: z.array(contextFileSizeSchema).optional(),
 })
 
-export type OversizedFile = z.infer<typeof oversizedFileSchema>
+export type ContextFileSize = z.infer<typeof contextFileSizeSchema>
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 ```
+
+`contextFiles` は「超過の原因になったファイル」だけを絞り込んだものではない。
+送られた `context.files` すべてを推定トークン数の降順で並べたものであり、CLI は先頭から順に落として再送する。
 
 `packages/contract/src/index.ts`:
 
@@ -861,8 +864,8 @@ git commit -m "feat(api): add ollama chat client"
 - Test: `apps/api/src/review/prompt.test.ts`
 
 **Interfaces:**
-- Consumes: `ReviewRequest`, `MAX_INPUT_TOKENS`, `estimateTokens`, `OversizedFile`（Task 1）
-- Produces: `buildReviewPrompt(request: ReviewRequest): string`。`checkInputSize(request: ReviewRequest): SizeCheck`。`SizeCheck` は `{ ok: true; inputTokens: number } | { ok: false; inputTokens: number; oversizedFiles: OversizedFile[] }`
+- Consumes: `ReviewRequest`, `MAX_INPUT_TOKENS`, `estimateTokens`, `ContextFileSize`（Task 1）
+- Produces: `buildReviewPrompt(request: ReviewRequest): string`。`checkInputSize(request: ReviewRequest): SizeCheck`。`SizeCheck` は `{ ok: true; inputTokens: number } | { ok: false; inputTokens: number; contextFiles: ContextFileSize[] }`
 
 - [ ] **Step 1: テストを書く**
 
@@ -870,7 +873,7 @@ git commit -m "feat(api): add ollama chat client"
 
 ```ts
 import { describe, expect, it } from 'vitest'
-import type { ReviewRequest } from '@exocortex/contract'
+import { estimateTokens, MAX_INPUT_TOKENS, type ReviewRequest } from '@exocortex/contract'
 import { buildReviewPrompt, checkInputSize } from './prompt.js'
 
 function makeRequest(overrides: Partial<ReviewRequest> = {}): ReviewRequest {
@@ -924,7 +927,7 @@ describe('checkInputSize', () => {
     const check = checkInputSize(makeRequest({ context: { files: [{ path: 'big.ts', content: huge }] } }))
     expect(check.ok).toBe(false)
     if (!check.ok) {
-      expect(check.oversizedFiles[0]?.path).toBe('big.ts')
+      expect(check.contextFiles[0]?.path).toBe('big.ts')
     }
   })
 
@@ -941,7 +944,49 @@ describe('checkInputSize', () => {
     )
     expect(check.ok).toBe(false)
     if (!check.ok) {
-      expect(check.oversizedFiles.map((f) => f.path)).toEqual(['big.ts', 'small.ts'])
+      expect(check.contextFiles.map((f) => f.path)).toEqual(['big.ts', 'small.ts'])
+    }
+  })
+
+  it('estimates a file token cost including its wrapper, not just its content', () => {
+    const check = checkInputSize(
+      makeRequest({
+        context: {
+          files: [
+            { path: 'a.ts', content: 'x'.repeat(200_000) },
+            { path: 'b.ts', content: 'y' },
+          ],
+        },
+      }),
+    )
+    expect(check.ok).toBe(false)
+    if (!check.ok) {
+      const b = check.contextFiles.find((f) => f.path === 'b.ts')
+      expect(b?.estimatedTokens).toBeGreaterThan(estimateTokens('y'))
+    }
+  })
+
+  it('accepts a request whose estimated tokens land exactly on the budget, and rejects one token over', () => {
+    const baseLength = buildReviewPrompt(makeRequest({ context: { files: [{ path: 'a.ts', content: '' }] } })).length
+    const atBudget = makeRequest({
+      context: { files: [{ path: 'a.ts', content: 'x'.repeat(MAX_INPUT_TOKENS * 3 - baseLength) }] },
+    })
+    const overBudget = makeRequest({
+      context: { files: [{ path: 'a.ts', content: 'x'.repeat(MAX_INPUT_TOKENS * 3 + 1 - baseLength) }] },
+    })
+
+    expect(estimateTokens(buildReviewPrompt(atBudget))).toBe(MAX_INPUT_TOKENS)
+    expect(checkInputSize(atBudget).ok).toBe(true)
+
+    expect(estimateTokens(buildReviewPrompt(overBudget))).toBe(MAX_INPUT_TOKENS + 1)
+    expect(checkInputSize(overBudget).ok).toBe(false)
+  })
+
+  it('returns an empty file list when the diff alone overflows the budget', () => {
+    const check = checkInputSize(makeRequest({ diff: 'x'.repeat(200_000), context: { files: [] } }))
+    expect(check.ok).toBe(false)
+    if (!check.ok) {
+      expect(check.contextFiles).toEqual([])
     }
   })
 })
@@ -958,15 +1003,16 @@ Expected: FAIL（`./prompt.js` を解決できない）
 
 ```ts
 import {
+  type ContextFile,
+  type ContextFileSize,
   MAX_INPUT_TOKENS,
-  type OversizedFile,
   type ReviewRequest,
   estimateTokens,
 } from '@exocortex/contract'
 
 export type SizeCheck =
   | { ok: true; inputTokens: number }
-  | { ok: false; inputTokens: number; oversizedFiles: OversizedFile[] }
+  | { ok: false; inputTokens: number; contextFiles: ContextFileSize[] }
 
 const SYSTEM_INSTRUCTION = `You are a meticulous senior code reviewer.
 Review the given diff and report concrete, actionable problems.
@@ -974,6 +1020,10 @@ Do not praise. Do not restate what the code does. Report only problems worth fix
 Assign each comment a severity: "critical", "major", "minor", or "info".
 Respond with JSON matching this shape:
 {"summary": string, "comments": [{"severity": string, "file": string, "line": number, "message": string}]}`
+
+function renderContextFile(file: ContextFile): string {
+  return `File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\``
+}
 
 export function buildReviewPrompt(request: ReviewRequest): string {
   const sections: string[] = [SYSTEM_INSTRUCTION, `Language: ${request.language}`]
@@ -983,7 +1033,7 @@ export function buildReviewPrompt(request: ReviewRequest): string {
   }
 
   for (const file of request.context.files) {
-    sections.push(`File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\``)
+    sections.push(renderContextFile(file))
   }
 
   sections.push(`Diff to review:\n\`\`\`diff\n${request.diff}\n\`\`\``)
@@ -997,15 +1047,18 @@ export function checkInputSize(request: ReviewRequest): SizeCheck {
     return { ok: true, inputTokens }
   }
 
-  const oversizedFiles: OversizedFile[] = request.context.files
-    .map((file) => ({ path: file.path, estimatedTokens: estimateTokens(file.content) }))
+  const contextFiles: ContextFileSize[] = request.context.files
+    .map((file) => ({ path: file.path, estimatedTokens: estimateTokens(renderContextFile(file)) }))
     .sort((a, b) => b.estimatedTokens - a.estimatedTokens)
 
-  return { ok: false, inputTokens, oversizedFiles }
+  return { ok: false, inputTokens, contextFiles }
 }
 ```
 
 JSON の形をプロンプト本文にも書いているのは、Ollama の公式ドキュメントが structured outputs の推奨として明記しているためである。`format` による強制と併用する。
+
+`checkInputSize` はファイル単体の `estimatedTokens` を `file.content` からではなく、`renderContextFile` が組み立てるラッパー込みの文字列から算出する。
+`buildReviewPrompt` と定義を共有することで、CLI に返す見積もりとプロンプトへの実際の寄与を一致させる。
 
 - [ ] **Step 4: テストが通ることを確認する**
 
@@ -1104,7 +1157,7 @@ describe('POST /review', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 413 with oversized files when the context is too large', async () => {
+  it('returns 413 with the ranked context files when the context is too large', async () => {
     const app = appWith(fakeOllama({ content: validResult, totalDurationMs: 0 }))
     const res = await app.request('/review', {
       method: 'POST',
@@ -1119,7 +1172,7 @@ describe('POST /review', () => {
     expect(res.status).toBe(413)
     const body = await res.json()
     expect(body.error).toBe('context_too_large')
-    expect(body.oversizedFiles[0].path).toBe('big.ts')
+    expect(body.contextFiles[0].path).toBe('big.ts')
   })
 
   it('returns 503 when ollama is unreachable', async () => {
@@ -1198,7 +1251,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         {
           error: 'context_too_large',
           message: `estimated ${size.inputTokens} input tokens exceeds the budget`,
-          oversizedFiles: size.oversizedFiles,
+          contextFiles: size.contextFiles,
         },
         413,
       )
@@ -2270,7 +2323,7 @@ describe('requestReview', () => {
     expect(headers?.get('Authorization')).toBe('Bearer secret')
   })
 
-  it('drops the largest oversized file and retries on 413', async () => {
+  it('drops the largest context file and retries on 413', async () => {
     const sentFiles: string[][] = []
     vi.stubGlobal('fetch', vi.fn(async (_url, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as ReviewRequest
@@ -2281,7 +2334,7 @@ describe('requestReview', () => {
           JSON.stringify({
             error: 'context_too_large',
             message: 'too big',
-            oversizedFiles: [{ path: 'big.ts', estimatedTokens: 99 }],
+            contextFiles: [{ path: 'big.ts', estimatedTokens: 99 }],
           }),
           { status: 413 },
         )
@@ -2299,7 +2352,7 @@ describe('requestReview', () => {
   it('gives up after repeated 413 responses', async () => {
     vi.stubGlobal('fetch', vi.fn(async () =>
       new Response(
-        JSON.stringify({ error: 'context_too_large', message: 'too big', oversizedFiles: [] }),
+        JSON.stringify({ error: 'context_too_large', message: 'too big', contextFiles: [] }),
         { status: 413 },
       ),
     ))
@@ -2370,7 +2423,7 @@ export async function requestReview(options: ClientOptions): Promise<ReviewRespo
       throw new Error(`review failed (${response.status}): ${error?.message ?? 'unknown error'}`)
     }
 
-    const largest = error?.oversizedFiles?.[0]?.path
+    const largest = error?.contextFiles?.[0]?.path
     const remaining = largest
       ? request.context.files.filter((file) => file.path !== largest)
       : request.context.files.slice(0, -1)
