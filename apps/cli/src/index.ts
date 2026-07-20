@@ -1,38 +1,20 @@
 #!/usr/bin/env node
-import { parseArgs } from 'node:util'
 import { CLI_CONTEXT_BUDGET_TOKENS } from '@exocortex/contract'
+import { parseOptions, USAGE } from './args.js'
 import { requestReview } from './client.js'
 import { collectContext } from './collect.js'
 import { formatReview } from './format.js'
 import { collectDiff, repoRoot } from './git.js'
 
-const USAGE = `Usage: ai-review [options]
+const parsed = parseOptions(process.argv.slice(2))
 
-  --base <ref>       diff against <ref> instead of the working tree
-  --staged           review only staged changes
-  --json             print the raw response as JSON
-  --language <lang>  language passed to the reviewer (default: typescript)
-  --help             show this message`
-
-function parseOptions() {
-  try {
-    return parseArgs({
-      options: {
-        base: { type: 'string' },
-        staged: { type: 'boolean' },
-        json: { type: 'boolean' },
-        language: { type: 'string', default: 'typescript' },
-        help: { type: 'boolean' },
-      },
-    }).values
-  } catch (cause) {
-    console.error(cause instanceof Error ? cause.message : String(cause))
-    console.error(USAGE)
-    process.exit(1)
-  }
+if (!parsed.ok) {
+  console.error(parsed.message)
+  console.error(USAGE)
+  process.exit(1)
 }
 
-const values = parseOptions()
+const values = parsed.options
 
 if (values.help) {
   console.log(USAGE)
