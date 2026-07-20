@@ -2471,8 +2471,8 @@ git commit -m "feat(cli): add context collection with priority packing"
 `apps/cli/src/client.test.ts`:
 
 ```ts
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReviewRequest } from '@exocortex/contract'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { requestReview } from './client.js'
 
 afterEach(() => {
@@ -2483,18 +2483,30 @@ const baseRequest: ReviewRequest = {
   language: 'typescript',
   diff: 'd',
   rules: [],
-  context: { files: [{ path: 'big.ts', content: 'x' }, { path: 'small.ts', content: 'y' }] },
+  context: {
+    files: [
+      { path: 'big.ts', content: 'x' },
+      { path: 'small.ts', content: 'y' },
+    ],
+  },
 }
 
-const okBody = { summary: 's', comments: [], meta: { model: 'm', inputTokens: 1, durationMs: 1 } }
+const okBody = {
+  summary: 's',
+  comments: [],
+  meta: { model: 'm', inputTokens: 1, durationMs: 1 },
+}
 
 describe('requestReview', () => {
   it('sends the bearer token', async () => {
     let headers: Headers | undefined
-    vi.stubGlobal('fetch', vi.fn(async (_url, init: RequestInit) => {
-      headers = new Headers(init.headers)
-      return new Response(JSON.stringify(okBody))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url, init: RequestInit) => {
+        headers = new Headers(init.headers)
+        return new Response(JSON.stringify(okBody))
+      }),
+    )
 
     await requestReview({ endpoint: 'http://host:11435', token: 'secret', request: baseRequest })
     expect(headers?.get('Authorization')).toBe('Bearer secret')
@@ -2502,22 +2514,25 @@ describe('requestReview', () => {
 
   it('drops the largest context file and retries on 413', async () => {
     const sentFiles: string[][] = []
-    vi.stubGlobal('fetch', vi.fn(async (_url, init: RequestInit) => {
-      const body = JSON.parse(String(init.body)) as ReviewRequest
-      sentFiles.push(body.context.files.map((f) => f.path))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url, init: RequestInit) => {
+        const body = JSON.parse(String(init.body)) as ReviewRequest
+        sentFiles.push(body.context.files.map((f) => f.path))
 
-      if (sentFiles.length === 1) {
-        return new Response(
-          JSON.stringify({
-            error: 'context_too_large',
-            message: 'too big',
-            contextFiles: [{ path: 'big.ts', estimatedTokens: 99 }],
-          }),
-          { status: 413 },
-        )
-      }
-      return new Response(JSON.stringify(okBody))
-    }))
+        if (sentFiles.length === 1) {
+          return new Response(
+            JSON.stringify({
+              error: 'context_too_large',
+              message: 'too big',
+              contextFiles: [{ path: 'big.ts', estimatedTokens: 99 }],
+            }),
+            { status: 413 },
+          )
+        }
+        return new Response(JSON.stringify(okBody))
+      }),
+    )
 
     const result = await requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest })
 
@@ -2526,30 +2541,149 @@ describe('requestReview', () => {
     expect(result.summary).toBe('s')
   })
 
-  it('gives up after repeated 413 responses', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      new Response(
-        JSON.stringify({ error: 'context_too_large', message: 'too big', contextFiles: [] }),
-        { status: 413 },
-      ),
-    ))
+  it('gives up after repeated 413 responses with an empty contextFiles list, without spinning forever', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error: 'context_too_large', message: 'too big', contextFiles: [] }),
+          { status: 413 },
+        ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
 
     await expect(
       requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
     ).rejects.toThrow(/context/)
+
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(6)
+  })
+
+  it('does not loop forever when the server keeps returning 413 and files remain to drop', async () => {
+    const manyFiles = Array.from({ length: 10 }, (_, i) => ({ path: `f${i}.ts`, content: 'x' }))
+    const manyFileRequest: ReviewRequest = { ...baseRequest, context: { files: manyFiles } }
+
+    const fetchMock = vi.fn(async (_url, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as ReviewRequest
+      const largest = body.context.files[0]
+      return new Response(
+        JSON.stringify({
+          error: 'context_too_large',
+          message: 'too big',
+          contextFiles: largest ? [{ path: largest.path, estimatedTokens: 99 }] : [],
+        }),
+        { status: 413 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: manyFileRequest }),
+    ).rejects.toThrow(/context/)
+
+    expect(fetchMock).toHaveBeenCalledTimes(6)
   })
 
   it('throws a helpful error on 401', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      new Response(JSON.stringify({ error: 'unauthorized', message: 'bad token' }), { status: 401 }),
-    ))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ error: 'unauthorized', message: 'bad token' }), { status: 401 })),
+    )
 
     await expect(
       requestReview({ endpoint: 'http://host:11435', token: 'wrong', request: baseRequest }),
     ).rejects.toThrow(/token/i)
   })
+
+  it('throws a helpful error on 502 that points at ollama, not the windows machine', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'ollama_error', message: 'ollama returned 500' }), { status: 502 }),
+      ),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/ollama/i)
+  })
+
+  it('throws a helpful error on 503 that asks whether the windows machine is running', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'ollama_unreachable', message: 'could not reach ollama' }), { status: 503 }),
+      ),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/windows/i)
+  })
+
+  it('throws a helpful error on 504 that suggests retrying', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'inference_timeout', message: 'timed out' }), { status: 504 }),
+      ),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/retry/i)
+  })
+
+  it('throws an auth-specific error on 400 from a malformed Authorization header', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ error: 'unauthorized', message: 'invalid or missing bearer token' }),
+          { status: 400 },
+        ),
+      ),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/token/i)
+  })
+
+  it('throws a generic error with the server message on 400 from an invalid payload', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'invalid_request', message: 'diff must not be empty' }), { status: 400 }),
+      ),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/diff must not be empty/)
+  })
+
+  it('throws a generic error carrying the status and message for a status the table does not cover', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ error: 'internal', message: 'unexpected failure' }), { status: 500 })),
+    )
+
+    await expect(
+      requestReview({ endpoint: 'http://host:11435', token: 't', request: baseRequest }),
+    ).rejects.toThrow(/500/)
+  })
 })
 ```
+
+`docs/design.md` のエラー処理の表は 401 / 400 / 413 / 503 / 502 / 504 の 6 通りを定める。
+400 は payload 不正だけでなく、`hono/bearer-auth` が構文的に不正な `Authorization` ヘッダーに対しても返す（`apps/api/src/auth.ts` 参照）。
+どちらも `error: 'unauthorized'` を返すため、CLI 側は `error` フィールドで区別し、トークン起因の 400 だけ認証の文言にする。
+表に無いステータス（テストでは 500 で代表させる）は、413 以外を処理する既定の分岐にそのまま落ちる。
+黙って握りつぶさず、ステータスとサーバーの `message` をそのまま伝える。
+
+413 のリトライが止まることを 2 通りのテストで確認する。
+1 つは `contextFiles` が空で返り続けるケースで、削るものが尽きて自然に諦める。
+もう 1 つはファイルが十分残っているのに 413 が返り続けるケースで、`MAX_RETRIES` による上限で強制的に止まることを呼び出し回数で確認する。
 
 - [ ] **Step 2: テストが失敗することを確認する**
 
@@ -2571,6 +2705,10 @@ export interface ClientOptions {
 
 const MAX_RETRIES = 5
 
+function isAuthHeaderError(error: ErrorResponse | null): boolean {
+  return error?.error === 'unauthorized'
+}
+
 export async function requestReview(options: ClientOptions): Promise<ReviewResponse> {
   let request = options.request
 
@@ -2587,8 +2725,16 @@ export async function requestReview(options: ClientOptions): Promise<ReviewRespo
 
     const error = (await response.json().catch(() => null)) as ErrorResponse | null
 
+    if (response.status === 400 && isAuthHeaderError(error)) {
+      throw new Error('authentication failed: the token is malformed (check EXOCORTEX_TOKEN)')
+    }
     if (response.status === 401) {
       throw new Error('authentication failed: check the API token')
+    }
+    if (response.status === 502) {
+      throw new Error(
+        `ollama returned an error: check the model name and whether ollama itself is healthy (${error?.message ?? 'unknown error'})`,
+      )
     }
     if (response.status === 503) {
       throw new Error('could not reach ollama: is the Windows machine running?')
@@ -2617,6 +2763,7 @@ export async function requestReview(options: ClientOptions): Promise<ReviewRespo
 ```
 
 413 のたびに最大のファイルを 1 つ落として再送する。落とすものが無くなったら諦める。
+`MAX_RETRIES`（5）が `for` ループの上限になっており、削るものが尽きなくても 6 回目の試行はループの外に落ちて確実に終了する。
 
 - [ ] **Step 4: テストが通ることを確認する**
 
@@ -2728,8 +2875,20 @@ const { values } = parseArgs({
     staged: { type: 'boolean' },
     json: { type: 'boolean' },
     language: { type: 'string', default: 'typescript' },
+    help: { type: 'boolean' },
   },
 })
+
+if (values.help) {
+  console.log(`Usage: ai-review [options]
+
+  --base <ref>       diff against <ref> instead of the working tree
+  --staged           review only staged changes
+  --json             print the raw response as JSON
+  --language <lang>  language passed to the reviewer (default: typescript)
+  --help             show this message`)
+  process.exit(0)
+}
 
 const endpoint = process.env.EXOCORTEX_ENDPOINT
 const token = process.env.EXOCORTEX_TOKEN
@@ -2739,17 +2898,17 @@ if (!endpoint || !token) {
   process.exit(1)
 }
 
-const root = repoRoot(process.cwd())
-const { diff, changedFiles } = collectDiff({ cwd: root, base: values.base, staged: values.staged })
-
-if (diff.length === 0) {
-  console.error('no changes to review')
-  process.exit(1)
-}
-
-const files = collectContext({ root, changedFiles, diff, budgetTokens: CLI_CONTEXT_BUDGET_TOKENS })
-
 try {
+  const root = repoRoot(process.cwd())
+  const { diff, changedFiles } = collectDiff({ cwd: root, base: values.base, staged: values.staged })
+
+  if (diff.length === 0) {
+    console.error('no changes to review')
+    process.exit(1)
+  }
+
+  const files = collectContext({ root, changedFiles, diff, budgetTokens: CLI_CONTEXT_BUDGET_TOKENS })
+
   const response = await requestReview({
     endpoint,
     token,
@@ -2767,6 +2926,19 @@ try {
   process.exit(1)
 }
 ```
+
+`--help` を宣言するのは、`node:util` の `parseArgs` が既定で strict モードであり、宣言していないオプションを渡されると例外を投げるためである。
+Task 12 の確認手順に `ai-review --help` が動くことが含まれているため、ここで対応しておく。
+`values.help` のチェックは環境変数のチェックより前に置き、`--help` だけならトークン未設定でも動くようにする。
+
+`repoRoot` と `collectDiff` の呼び出しも `try` に含める。
+`collectDiff` は `base` が git ref に解決できない場合や `base` と `staged` を同時に渡した場合に例外を投げる（Task 8）。
+CLI 側でこれを再チェックせず、投げられた `Error` の `message` をそのまま拾って 1 行で表示する。
+そうしないと Node の生のスタックトレースがユーザーに見えてしまう。
+
+先頭の `#!/usr/bin/env node` は TypeScript が `dist/index.js` にそのまま引き継ぐ。
+ただし `tsc` は `dist` をビルドのたびに作り直すため、実行可能ビットは保持されない。
+`chmod +x` は Task 12 の `PATH` 配線の一部として扱い、このリポジトリにはビルド後処理を追加しない。
 
 - [ ] **Step 9: テストが通ることを確認してコミットする**
 
@@ -2891,6 +3063,10 @@ pnpm build
 ln -s "$PWD/apps/cli/dist/index.js" ~/.local/bin/ai-review
 chmod +x apps/cli/dist/index.js
 ```
+
+`tsc` は `dist` をビルドのたびに作り直すため、実行可能ビットはビルドごとに失われる。
+`pnpm build` のあとは毎回 `chmod +x` が要る。
+シンボリックリンクはパスに対して張るため、リンクの張り直しは不要。
 
 確認: `ai-review --help` が動くこと。
 
