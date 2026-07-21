@@ -217,12 +217,18 @@ WSL2 は既定で NAT モードのため、Mac から到達できません。
 ```ini
 [wsl2]
 networkingMode=mirrored
+memory=12GB
 ```
 
 ```powershell
 # PowerShell
 wsl --shutdown
 ```
+
+`memory` の既定はホスト RAM の 50% です。
+このマシンを Windows 側でも使うなら、上限を切っておきます。
+Ollama がモデルファイルを読んで VRAM に転送する間のピークに、Docker と OS の分を足すと 12GB で足ります。
+搭載 32GB の環境で、Windows 側に 19GB 残る配分です。
 
 この設定は WSL2 の VM 全体に効きます。
 ディストロごとに分ける手段はないため、既存のディストロの通信にも影響します。
@@ -609,14 +615,40 @@ mirrored が使えるならそちらを選びます。
 Microsoft の文書は WSL2 一般の到達性しか扱っておらず、Docker を挟んだ場合の記載がありません。
 実機では mirrored モードのまま届きました。
 
-## 13. Windows の再起動後に自動で上がるようにする
+## 13. 使う前にディストロを起動する
 
-`docker-compose.yml` の `restart: unless-stopped` が担保するのは、コンテナの再起動だけです。
-Windows を再起動すると WSL の VM 自体が停止しているため、Mac から呼んでも届きません。
+Windows を再起動すると WSL の VM が停止するため、Mac から呼んでも届きません。
+`docker-compose.yml` の `restart: unless-stopped` が担保するのはコンテナの再起動だけです。
+
+**自動起動は成立しません。** 理由は後述します。
+使う前に、Windows 側でディストロを起動します。
 
 **実行**
 
-タスクスケジューラに、ログオン時にディストロを起動するタスクを登録します。
+```powershell
+# PowerShell
+wsl -d <distro> -- /bin/true
+```
+
+**確認**
+
+```powershell
+# PowerShell
+wsl -d <distro> -- docker ps --format "{{.Names}} {{.Status}}"
+```
+
+`ai-api` と `ollama` の 2 つが並べば、Mac から使える状態です。
+ディストロが起動すると、手順 6 で `systemctl enable` した Docker が上がり、コンテナが続いて起動します。
+`docker compose up` を打ち直す必要はありません。
+
+Mac 側の CLI は、Windows 機に届かないとき 503 を受けて起動を促します。
+起動し忘れても、誤った結果が返ることはありません。
+
+### 自動起動を試して諦めた経緯
+
+同じことを試す人のために、確かめた範囲を残します。
+
+タスクスケジューラにログオン時のタスクを登録する方法は、**途中まで動きます**。
 
 ```powershell
 # 管理者 PowerShell
@@ -626,55 +658,22 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName 'exocortex-wsl-boot' -Action $action -Trigger $trigger
 ```
 
-1 行目の `$distro` を、手順 2 で確定した名前に変えます。
-ここを置き換え忘れると、存在しないディストロを指定したタスクが登録されます。
-タスクの登録自体は成功するため、失敗は次の確認まで表に出ません。
+これでタスクは正しく発火し、ディストロが起動し、Docker とコンテナまで上がります。
+実測では、タスク実行の 20 秒後に `docker` が `active`、コンテナ 2 つが `Up` になっていました。
 
-ディストロが起動すれば、手順 6 で `systemctl enable` した Docker が上がり、`restart: unless-stopped` のコンテナが続いて起動します。
+問題はその後です。
+WSL は VM がアイドルになると停止します。
+`vmIdleTimeout` の既定は 60000 ミリ秒で、**Docker デーモンが動いていてもアイドルと判定されます**[^wslcfg2]。
+つまり起動から 1 分ほどでコンテナごと落ちます。
 
-**確認**
+`.wslconfig` の `vmIdleTimeout` を延ばす方法は効きませんでした。
+`-1` と `2147483647` の 2 つを試し、どちらも 200 秒後には停止していました。
+同じファイルに書いた `memory` は効いている（手順 4 参照）ので、`.wslconfig` 自体は読まれています。
+`vmIdleTimeout` だけが反映されない理由は分かっていません。
 
-Windows を再起動する前に、タスクを手動で実行して確かめます。
-再起動してから気づくと、原因の切り分けにログオンし直す手間がかかります。
+公式ドキュメントは「アイドル」の定義を書いていないため、これ以上は追っていません。
 
-```powershell
-# 管理者 PowerShell
-Get-ScheduledTask -TaskName 'exocortex-wsl-boot' | Select-Object -ExpandProperty Actions | Format-List Execute, Arguments
-
-wsl --terminate $distro
-Start-ScheduledTask -TaskName 'exocortex-wsl-boot'
-Start-Sleep -Seconds 15
-Get-ScheduledTaskInfo -TaskName 'exocortex-wsl-boot' | Select-Object LastTaskResult
-wsl -l -v
-```
-
-`Arguments` にディストロ名が入っていること、`LastTaskResult` が `0` であること、`wsl -l -v` でディストロが `Running` になっていることの 3 つを確認します。
-
-ここまで通ったら Windows を再起動し、ログオン後に Mac から確かめます。
-
-```bash
-# Mac
-curl http://<windows-ip>:11435/health
-```
-
-**失敗したら**
-
-`LastTaskResult` が `4294967295` の場合、タスクは起動したがアクションが失敗しています。
-まず `Arguments` にプレースホルダが残っていないかを見ます。
-存在しないディストロ名を指定していると、この値になります。
-
-同じコマンドを PowerShell で直接実行すると、タスクの問題かコマンドの問題かを切り分けられます。
-
-```powershell
-# PowerShell
-wsl.exe -d $distro -- /bin/true
-"exit code: $LASTEXITCODE"
-```
-
-直接実行が成功してタスクだけ失敗する場合は、タスクの定義を疑います。
-どちらも失敗する場合は、ディストロ名を疑います。
-
-ディストロは起動しているのにコンテナが上がっていない場合は、ディストロの中で `systemctl status docker` を確認します。
+[^wslcfg2]: [Advanced settings configuration in WSL - Microsoft Learn](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 
 ## 実測値の記録
 
@@ -700,7 +699,7 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 | VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | ComfyUI を止めた状態では `100% GPU` かつ `CONTEXT` 32768 で収まる。競合させたときの挙動は未確認 |
 | D: の NVMe からのモデルのロード時間 | 11 | 確認済み | 約 4.2 秒。`OLLAMA_KEEP_ALIVE` を `5m` にした代償は小さい |
 | mirrored モードでの Docker コンテナのポート到達性 | 12 | 確認済み | Mac から `/health` と `/review` の両方に到達する。`netsh interface portproxy` による退避路は不要 |
-| タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 13 | 未検証 | 未確認 |
+| タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 13 | 回避策あり | タスクは発火しコンテナまで上がるが、`vmIdleTimeout` により約 1 分で VM ごと停止する。`vmIdleTimeout` を延ばす設定は効かなかった。使う前に手動で起動する運用にした |
 | `wsl --unregister` で `ext4.vhdx` が自動削除されるか | 撤収 | 未検証 | 未確認 |
 
 ## 撤収とやり直し
