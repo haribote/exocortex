@@ -267,9 +267,28 @@ Docker Desktop は使いません。
 
 **実行**
 
+先にディストロ全体を更新します。
+新設した直後のイメージには未適用の更新が溜まっているため、これを済ませてから外部のリポジトリを足します。
+
 ```bash
 # <distro>
 sudo apt update
+sudo apt full-upgrade
+```
+
+更新にライブラリや systemd が含まれた場合は、ディストロを入れ直します。
+
+```powershell
+# PowerShell
+wsl --terminate <distro>
+```
+
+WSL のカーネルは Windows 側が提供するため、ここでカーネルが更新されることはありません。
+
+続いて Docker の apt リポジトリを登録します。
+
+```bash
+# <distro>
 sudo apt install ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
