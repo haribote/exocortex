@@ -25,7 +25,7 @@ Mac 側の `ai-review` CLI の導入は、この文書の範囲外です。
 `<` と `>` を残しません。
 
 置き換え忘れは、その場ではエラーにならないことがあります。
-手順 8 の `<api-token>` は 400 として後の手順に現れ、手順 13 の `<distro>` はタスクの登録が成功したように見えます。
+手順 8 の `<api-token>` は、置き換え忘れると後の手順で 400 として現れます。
 コマンドを貼る前に、山括弧が残っていないかを確かめます。
 
 手順 5 に出てくる GUID `{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}` はプレースホルダではありません。
@@ -615,22 +615,39 @@ mirrored が使えるならそちらを選びます。
 Microsoft の文書は WSL2 一般の到達性しか扱っておらず、Docker を挟んだ場合の記載がありません。
 実機では mirrored モードのまま届きました。
 
-## 13. 使う前にディストロを起動する
+## 日常の操作
+
+セットアップはここまでです。
+以降は使うたびに行う操作をまとめます。
 
 Windows を再起動すると WSL の VM が停止するため、Mac から呼んでも届きません。
 `docker-compose.yml` の `restart: unless-stopped` が担保するのはコンテナの再起動だけです。
-
 **自動起動は成立しません。** 理由は後述します。
-使う前に、Windows 側でディストロを起動します。
 
-**実行**
+### 起動する
 
 ```powershell
 # PowerShell
 wsl -d <distro> -- /bin/true
 ```
 
-**確認**
+ディストロが起動すると、手順 6 で `systemctl enable` した Docker が上がり、コンテナが続いて起動します。
+`docker compose up` を打ち直す必要はありません。
+
+毎回打つのが面倒であれば、デスクトップにショートカットを置きます。
+
+```powershell
+# PowerShell
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:USERPROFILE\Desktop\exocortex.lnk")
+$s.TargetPath = 'wsl.exe'
+$s.Arguments = '-d <distro> -- /bin/true'
+$s.Save()
+```
+
+Mac 側の CLI は、Windows 機に届かないとき 503 を受けて起動を促します。
+起動し忘れても、誤った結果が返ることはありません。
+
+### 状態を確認する
 
 ```powershell
 # PowerShell
@@ -638,11 +655,59 @@ wsl -d <distro> -- docker ps --format "{{.Names}} {{.Status}}"
 ```
 
 `ai-api` と `ollama` の 2 つが並べば、Mac から使える状態です。
-ディストロが起動すると、手順 6 で `systemctl enable` した Docker が上がり、コンテナが続いて起動します。
-`docker compose up` を打ち直す必要はありません。
 
-Mac 側の CLI は、Windows 機に届かないとき 503 を受けて起動を促します。
-起動し忘れても、誤った結果が返ることはありません。
+モデルがどこに載っているかは、ディストロの中から見ます。
+
+```bash
+# <distro>
+docker compose exec ollama ollama ps
+```
+
+`PROCESSOR` が `100% GPU` でなければ、VRAM を奪われています。
+ComfyUI が動いていないかを疑います。
+
+### 再起動する
+
+コンテナだけを入れ直します。
+
+```bash
+# <distro>
+docker compose restart
+```
+
+コードを更新したときは、イメージを作り直します。
+
+```bash
+# <distro>
+git pull
+docker compose up -d --build
+```
+
+ディストロごと入れ直すときは、いったん停止してから起動します。
+
+### 停止する
+
+```powershell
+# PowerShell
+wsl --terminate <distro>
+```
+
+コンテナは道連れに停止します。
+`wsl --shutdown` でも止まりますが、こちらは実行中のすべてのディストロを終了させます。
+他のディストロを使っているなら `--terminate` を選びます。
+
+### GPU を ComfyUI に譲る
+
+`OLLAMA_KEEP_ALIVE` は `5m` なので、5 分放置すればモデルは VRAM から降ります。
+すぐ譲りたいときは Ollama を止めます。
+
+```bash
+# <distro>
+docker compose stop ollama
+```
+
+`ai-api` は動いたままなので、Mac から呼ぶと 503 が返ります。
+使うときに `docker compose start ollama` で戻します。
 
 ### 自動起動を試して諦めた経緯
 
@@ -699,7 +764,7 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 | VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | ComfyUI を止めた状態では `100% GPU` かつ `CONTEXT` 32768 で収まる。競合させたときの挙動は未確認 |
 | D: の NVMe からのモデルのロード時間 | 11 | 確認済み | 約 4.2 秒。`OLLAMA_KEEP_ALIVE` を `5m` にした代償は小さい |
 | mirrored モードでの Docker コンテナのポート到達性 | 12 | 確認済み | Mac から `/health` と `/review` の両方に到達する。`netsh interface portproxy` による退避路は不要 |
-| タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 13 | 回避策あり | タスクは発火しコンテナまで上がるが、`vmIdleTimeout` により約 1 分で VM ごと停止する。`vmIdleTimeout` を延ばす設定は効かなかった。使う前に手動で起動する運用にした |
+| タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 日常の操作 | 回避策あり | タスクは発火しコンテナまで上がるが、`vmIdleTimeout` により約 1 分で VM ごと停止する。`vmIdleTimeout` を延ばす設定は効かなかった。使う前に手動で起動する運用にした |
 | `wsl --unregister` で `ext4.vhdx` が自動削除されるか | 撤収 | 未検証 | 未確認 |
 
 ## 撤収とやり直し
