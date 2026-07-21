@@ -95,18 +95,24 @@ wsl --version
 
 ```powershell
 # PowerShell
-wsl --install -d Ubuntu --location D:\wsl\exocortex
+wsl --install -d Ubuntu --location D:\wsl\exocortex --name exocortex
 ```
+
+`--name` を省くと、ディストロの名前はディストリビューション名（`Ubuntu`）になります。
+同じ名前のディストロがすでにある環境では、次のエラーで失敗します。
+
+```text
+指定された名前のディストリビューションは既に存在します。--name を使用して別の名前を選択してください。
+エラー コード: Wsl/InstallDistro/Service/RegisterDistro/ERROR_ALREADY_EXISTS
+```
+
+`--name` は Microsoft Learn のオプション一覧には記載がありませんが[^wslcmd]、WSL 自身がこのエラーで案内するとおり、実際に使えます。
 
 初回の起動で UNIX のユーザー名とパスワードを尋ねられます。
 ここで作るユーザーは Windows のアカウントとは無関係です。
 決めた名前が `<linux-user>` になります。
 
-このコマンドで作られるディストロの名前は `Ubuntu` です。
-`wsl --install` に名前を指定するオプションが無いためです[^wslcmd]。
-すでに `Ubuntu` という名前のディストロがある場合は衝突します。
-
-名前を `exocortex` にしたい場合、または `--location` が使えなかった場合は、`wsl --import` を使います。
+`--location` が使えなかった場合は、`wsl --import` を使います。
 
 ```powershell
 # PowerShell
@@ -143,8 +149,6 @@ wsl -l -v
 
 `--location` が認識されずエラーになる場合は、上記の `wsl --import` に切り替えます。
 どちらの経路を通ったかは、後で読み返すときに効くので記録しておきます。
-
-> **未検証** `--location` が使えるかどうか、また既定のディストロ名を変えられるかどうかは、まだ実機で確認していません。
 
 ## 3. systemd を有効にする
 
@@ -573,7 +577,7 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 
 | 項目 | 該当手順 | 状態 | 判明したこと |
 |---|---|---|---|
-| `wsl --install --location` が使える WSL のバージョンと、ディストロ名の扱い | 2 | 未検証 | 未確認 |
+| `wsl --install` の `--location` と `--name` が使えるか | 2 | 確認済み | どちらも使える。`--name` は Microsoft Learn のオプション一覧に記載がないが、WSL のエラーメッセージが案内し、実際に動作する。対応する WSL のバージョンは依然として不明 |
 | VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | 未確認 |
 | D: の NVMe からのモデルのロード時間 | 11 | 未検証 | 未確認 |
 | mirrored モードでの Docker コンテナのポート到達性 | 12 | 未検証 | 未確認 |
