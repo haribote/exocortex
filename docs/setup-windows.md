@@ -315,8 +315,18 @@ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin dock
 ```bash
 # <distro>
 sudo usermod -aG docker $USER
-newgrp docker
 ```
+
+グループの変更は、入り直すまで反映されません。
+ディストロを終了してから入り直します。
+
+```powershell
+# PowerShell
+wsl --terminate <distro>
+```
+
+公式の手順にある `newgrp docker` でも反映できますが、WSL の Ubuntu イメージには `newgrp` が入っていないことがあります。
+入り直すほうが確実です。
 
 Windows の再起動後にも Docker が上がるよう、サービスを有効にします。
 
@@ -336,8 +346,8 @@ docker run --rm hello-world
 
 **失敗したら**
 
-`permission denied` が出る場合は、グループの変更が反映されていません。
-ディストロを一度終了し（`wsl --terminate <distro>`）、入り直します。
+`permission denied` が出る場合は、入り直しが済んでいません。
+`wsl --terminate <distro>` をもう一度実行してから試します。
 
 ## 7. nvidia-container-toolkit を導入する
 
