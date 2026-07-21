@@ -407,25 +407,25 @@ cd exocortex
 cp .env.example .env
 ```
 
-`API_TOKEN` を生成し、`.env` に書きます。
+`API_TOKEN` を生成して `.env` に書き込みます。
 
 ```bash
 # <distro>
-openssl rand -hex 32
+sed -i "s|^API_TOKEN=.*|API_TOKEN=$(openssl rand -hex 32)|" .env
 ```
-
-生成したトークンは Mac 側でも使います。
-リポジトリに commit したり、この文書に書き写したりはしません。
-`.env` は `.gitignore` に入っています。
 
 **確認**
 
 ```bash
 # <distro>
-grep -c '^API_TOKEN=.\+' .env
+grep '^API_TOKEN=' .env
 ```
 
-`1` が返れば `API_TOKEN` に値が入っています。
+64 文字の 16 進数が続いていれば書き込めています。
+
+この値は Mac 側の `EXOCORTEX_TOKEN` にも設定するため、ここで控えておきます。
+リポジトリに commit したり、この文書に書き写したりはしません。
+`.env` は `.gitignore` の対象です。
 
 ## 9. 起動してモデルを取得する
 
