@@ -614,8 +614,8 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 
 | 測定項目 | 値 | 測定日 | 条件 |
 |---|---|---|---|
-| `ollama ps` の `SIZE`（qwen2.5-coder:14b） | 未測定 | 未測定 | ComfyUI 停止時 |
-| `ollama ps` の `CONTEXT` | 未測定 | 未測定 | ComfyUI 停止時 |
+| `ollama ps` の `SIZE`（qwen2.5-coder:14b） | 12 GB | 2026-07-21 | ComfyUI 停止時、`PROCESSOR` は `100% GPU` |
+| `ollama ps` の `CONTEXT` | 32768 | 2026-07-21 | ComfyUI 停止時 |
 | 初回リクエストの `meta.durationMs` | 未測定 | 未測定 | `docker compose restart ollama` 直後 |
 | 2 回目以降の `meta.durationMs` | 未測定 | 未測定 | モデル常駐時 |
 | 差分（モデルのロード時間） | 未測定 | 未測定 | 上 2 行の差 |
@@ -628,7 +628,7 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 | 項目 | 該当手順 | 状態 | 判明したこと |
 |---|---|---|---|
 | `wsl --install` の `--location` と `--name` が使えるか | 2 | 確認済み | どちらも使える。`--name` は Microsoft Learn のオプション一覧に記載がないが、WSL のエラーメッセージが案内し、実際に動作する。対応する WSL のバージョンは依然として不明 |
-| VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | 未確認 |
+| VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | ComfyUI を止めた状態では `100% GPU` かつ `CONTEXT` 32768 で収まる。競合させたときの挙動は未確認 |
 | D: の NVMe からのモデルのロード時間 | 11 | 未検証 | 未確認 |
 | mirrored モードでの Docker コンテナのポート到達性 | 12 | 未検証 | 未確認 |
 | タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 13 | 未検証 | 未確認 |
