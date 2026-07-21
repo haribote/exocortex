@@ -501,20 +501,40 @@ ComfyUI と GPU を共有する以上、日常の診断手段になります。
 
 **実行**
 
+再起動の直後に 1 回、続けてもう 1 回レビューを投げ、それぞれの `meta.durationMs` を比べます。
+`meta` の抽出には `jq` を使います。
+
+```bash
+# <distro>
+sudo apt install -y jq
+```
+
 ```bash
 # <distro>
 docker compose restart ollama
-```
+sleep 5
 
-再起動の直後にレビューを 1 回投げ、レスポンスの `meta.durationMs` を記録します。
-続けてもう 1 回投げ、同じ値を記録します。
+TOKEN=$(grep '^API_TOKEN=' .env | cut -d= -f2)
+REQ='{"language":"typescript","diff":"diff --git a/a.ts b/a.ts\n+const x = 1\n"}'
+
+echo "--- 1st (after restart) ---"
+curl -s -X POST http://localhost:11435/review \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "$REQ" | jq -c '.meta'
+
+echo "--- 2nd (model resident) ---"
+curl -s -X POST http://localhost:11435/review \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "$REQ" | jq -c '.meta'
+```
 
 **確認**
 
 2 回の差がモデルのロード時間にあたります。
 両方の値を「[実測値の記録](#実測値の記録)」に書き足します。
 
-> **未検証** D: の NVMe からのロード時間は、まだ測っていません。
+これは 2 回目の推論時間が 1 回目と等しいと仮定した近似です。
+ロード時間そのものを分離して測っているわけではありません。
 
 ## 12. Mac から疎通を確認する
 
@@ -616,9 +636,9 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 |---|---|---|---|
 | `ollama ps` の `SIZE`（qwen2.5-coder:14b） | 12 GB | 2026-07-21 | ComfyUI 停止時、`PROCESSOR` は `100% GPU` |
 | `ollama ps` の `CONTEXT` | 32768 | 2026-07-21 | ComfyUI 停止時 |
-| 初回リクエストの `meta.durationMs` | 未測定 | 未測定 | `docker compose restart ollama` 直後 |
-| 2 回目以降の `meta.durationMs` | 未測定 | 未測定 | モデル常駐時 |
-| 差分（モデルのロード時間） | 未測定 | 未測定 | 上 2 行の差 |
+| 初回リクエストの `meta.durationMs` | 5509 | 2026-07-21 | `docker compose restart ollama` 直後、`inputTokens` 167 |
+| 2 回目以降の `meta.durationMs` | 1346 | 2026-07-21 | モデル常駐時、同じリクエスト |
+| 差分（モデルのロード時間） | 4163 | 2026-07-21 | 上 2 行の差 |
 
 ## 未検証事項
 
@@ -629,7 +649,7 @@ ComfyUI の起動状態で値が変わるため、条件を添えて記録しま
 |---|---|---|---|
 | `wsl --install` の `--location` と `--name` が使えるか | 2 | 確認済み | どちらも使える。`--name` は Microsoft Learn のオプション一覧に記載がないが、WSL のエラーメッセージが案内し、実際に動作する。対応する WSL のバージョンは依然として不明 |
 | VRAM が競合したときに Ollama が部分オフロードへ落ちる閾値 | 10 | 未検証 | ComfyUI を止めた状態では `100% GPU` かつ `CONTEXT` 32768 で収まる。競合させたときの挙動は未確認 |
-| D: の NVMe からのモデルのロード時間 | 11 | 未検証 | 未確認 |
+| D: の NVMe からのモデルのロード時間 | 11 | 確認済み | 約 4.2 秒。`OLLAMA_KEEP_ALIVE` を `5m` にした代償は小さい |
 | mirrored モードでの Docker コンテナのポート到達性 | 12 | 未検証 | 未確認 |
 | タスクスケジューラ経由で Windows 再起動後にコンテナが上がるか | 13 | 未検証 | 未確認 |
 | `wsl --unregister` で `ext4.vhdx` が自動削除されるか | 撤収 | 未検証 | 未確認 |
