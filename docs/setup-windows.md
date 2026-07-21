@@ -24,6 +24,10 @@ Mac 側の `ai-review` CLI の導入は、この文書の範囲外です。
 置き換えるときは山括弧ごと置き換えます。
 `<` と `>` を残しません。
 
+置き換え忘れは、その場ではエラーにならないことがあります。
+手順 8 の `<api-token>` は 400 として後の手順に現れ、手順 13 の `<distro>` はタスクの登録が成功したように見えます。
+コマンドを貼る前に、山括弧が残っていないかを確かめます。
+
 手順 5 に出てくる GUID `{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}` はプレースホルダではありません。
 WSL に固定で割り当てられた既知の値なので、そのまま入力します。
 
@@ -616,16 +620,37 @@ Windows を再起動すると WSL の VM 自体が停止しているため、Mac
 
 ```powershell
 # 管理者 PowerShell
-$action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument '-d <distro> -- /bin/true'
+$distro = 'exocortex'
+$action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument "-d $distro -- /bin/true"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName 'exocortex-wsl-boot' -Action $action -Trigger $trigger
 ```
+
+1 行目の `$distro` を、手順 2 で確定した名前に変えます。
+ここを置き換え忘れると、存在しないディストロを指定したタスクが登録されます。
+タスクの登録自体は成功するため、失敗は次の確認まで表に出ません。
 
 ディストロが起動すれば、手順 6 で `systemctl enable` した Docker が上がり、`restart: unless-stopped` のコンテナが続いて起動します。
 
 **確認**
 
-Windows を再起動し、ログオン後に Mac から `/health` を叩きます。
+Windows を再起動する前に、タスクを手動で実行して確かめます。
+再起動してから気づくと、原因の切り分けにログオンし直す手間がかかります。
+
+```powershell
+# 管理者 PowerShell
+Get-ScheduledTask -TaskName 'exocortex-wsl-boot' | Select-Object -ExpandProperty Actions | Format-List Execute, Arguments
+
+wsl --terminate $distro
+Start-ScheduledTask -TaskName 'exocortex-wsl-boot'
+Start-Sleep -Seconds 15
+Get-ScheduledTaskInfo -TaskName 'exocortex-wsl-boot' | Select-Object LastTaskResult
+wsl -l -v
+```
+
+`Arguments` にディストロ名が入っていること、`LastTaskResult` が `0` であること、`wsl -l -v` でディストロが `Running` になっていることの 3 つを確認します。
+
+ここまで通ったら Windows を再起動し、ログオン後に Mac から確かめます。
 
 ```bash
 # Mac
@@ -634,10 +659,22 @@ curl http://<windows-ip>:11435/health
 
 **失敗したら**
 
-タスクスケジューラの履歴でタスクが実行されたかを見ます。
-実行されているのにコンテナが上がっていない場合は、ディストロの中で `systemctl status docker` を確認します。
+`LastTaskResult` が `4294967295` の場合、タスクは起動したがアクションが失敗しています。
+まず `Arguments` にプレースホルダが残っていないかを見ます。
+存在しないディストロ名を指定していると、この値になります。
 
-> **未検証** この方法で Windows 再起動後にコンテナが上がるかどうかは、まだ確認していません。
+同じコマンドを PowerShell で直接実行すると、タスクの問題かコマンドの問題かを切り分けられます。
+
+```powershell
+# PowerShell
+wsl.exe -d $distro -- /bin/true
+"exit code: $LASTEXITCODE"
+```
+
+直接実行が成功してタスクだけ失敗する場合は、タスクの定義を疑います。
+どちらも失敗する場合は、ディストロ名を疑います。
+
+ディストロは起動しているのにコンテナが上がっていない場合は、ディストロの中で `systemctl status docker` を確認します。
 
 ## 実測値の記録
 
