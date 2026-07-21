@@ -369,6 +369,10 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
+`/etc/docker/daemon.json` がまだ無い状態では、`Config file does not exist; using empty config` が出ます。
+新規に導入した直後であれば、これが既定の状態です。
+`Wrote updated config to /etc/docker/daemon.json` が続いていれば設定は書けています。
+
 **確認**
 
 ```bash
