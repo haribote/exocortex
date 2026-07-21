@@ -1,9 +1,10 @@
 FROM node:24-slim AS build
 WORKDIR /app
 RUN corepack enable
-COPY pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/contract/package.json ./packages/contract/
 COPY apps/api/package.json ./apps/api/
+COPY apps/cli/package.json ./apps/cli/
 RUN pnpm install --frozen-lockfile
 COPY packages/contract ./packages/contract
 COPY apps/api ./apps/api
