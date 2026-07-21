@@ -120,13 +120,7 @@ wsl --import exocortex D:\wsl\exocortex <rootfs-tar> --version 2
 ```
 
 `<rootfs-tar>` には Ubuntu の WSL 用 rootfs アーカイブのパスを渡します。
-`--import` では初回のユーザー作成プロンプトが走らず、root で入ります。
 ユーザーの作成と既定ユーザーの設定は、手順 3 で `/etc/wsl.conf` を編集するときにあわせて行います。
-
-```ini
-[user]
-default=<linux-user>
-```
 
 **確認**
 
@@ -156,14 +150,33 @@ Docker が systemd を必要とします。
 
 **実行**
 
-ディストロの中で `/etc/wsl.conf` を編集します。
+まず現状を確認します。
+`wsl --install` で入れた最近の Ubuntu イメージには、`systemd=true` が最初から入っています。
+
+```bash
+# <distro>
+cat /etc/wsl.conf
+```
+
+`[boot]` の下に `systemd=true` があれば、ここで書き足すものはありません。
+確認に進みます。
+
+無ければ追記します。
 
 ```ini
 [boot]
 systemd=true
 ```
 
-書き終えたら WSL を再起動します。
+手順 2 で `wsl --import` を使った場合は、既定ユーザーの設定もここで書きます。
+`--import` は初回のユーザー作成プロンプトを出さないため、これが無いと root で入ることになります。
+
+```ini
+[user]
+default=<linux-user>
+```
+
+`/etc/wsl.conf` を編集した場合は、WSL を再起動して反映します。
 
 ```powershell
 # PowerShell
