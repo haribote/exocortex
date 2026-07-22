@@ -183,3 +183,13 @@ describe('checkInputSize', () => {
     }
   })
 })
+
+describe('buildReviewPrompt quote grounding', () => {
+  it('requires a verbatim quote in the declared json shape', () => {
+    expect(buildReviewPrompt(makeRequest())).toContain('"quote"')
+  })
+
+  it('warns that an unquotable comment will be discarded', () => {
+    expect(buildReviewPrompt(makeRequest())).toMatch(/discard/i)
+  })
+})

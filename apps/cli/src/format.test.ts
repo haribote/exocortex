@@ -5,10 +5,27 @@ import { formatReview } from './format.js'
 const response: ReviewResponse = {
   summary: 'two issues found',
   comments: [
-    { severity: 'minor', file: 'b.ts', line: 8, message: 'prefer const' },
-    { severity: 'critical', file: 'a.ts', line: 3, message: 'null deref' },
+    {
+      severity: 'minor',
+      file: 'b.ts',
+      line: 8,
+      quote: 'let x = 1',
+      message: 'prefer const',
+    },
+    {
+      severity: 'critical',
+      file: 'a.ts',
+      line: 3,
+      quote: 'a.b.c',
+      message: 'null deref',
+    },
   ],
-  meta: { model: 'qwen2.5-coder:14b', inputTokens: 100, durationMs: 2000 },
+  meta: {
+    model: 'qwen2.5-coder:14b',
+    inputTokens: 100,
+    durationMs: 2000,
+    droppedComments: 0,
+  },
 }
 
 describe('formatReview', () => {
@@ -36,5 +53,23 @@ describe('formatReview', () => {
   it('states when there are no comments', () => {
     const empty: ReviewResponse = { ...response, comments: [] }
     expect(formatReview(empty)).toContain('No issues')
+  })
+})
+
+describe('formatReview quote and dropped count', () => {
+  it('shows the quoted line under each comment', () => {
+    expect(formatReview(response)).toContain('a.b.c')
+  })
+
+  it('reports how many comments were dropped as unverifiable', () => {
+    const dropped: ReviewResponse = {
+      ...response,
+      meta: { ...response.meta, droppedComments: 3 },
+    }
+    expect(formatReview(dropped)).toMatch(/3 .*dropped/i)
+  })
+
+  it('says nothing about dropped comments when none were dropped', () => {
+    expect(formatReview(response)).not.toMatch(/dropped/i)
   })
 })
