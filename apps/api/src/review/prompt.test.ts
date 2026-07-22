@@ -28,6 +28,34 @@ describe('buildReviewPrompt', () => {
     )
   })
 
+  it('numbers every line of a context file', () => {
+    const prompt = buildReviewPrompt(
+      makeRequest({
+        context: {
+          files: [{ path: 'a.ts', content: 'const a = 1\nconst b = 2' }],
+        },
+      }),
+    )
+    expect(prompt).toContain('1\tconst a = 1')
+    expect(prompt).toContain('2\tconst b = 2')
+  })
+
+  it('tells the model that the line numbers are the ones to cite', () => {
+    const prompt = buildReviewPrompt(makeRequest())
+    expect(prompt).toMatch(/line number/i)
+  })
+
+  it('defines each severity so the model does not inflate them', () => {
+    const prompt = buildReviewPrompt(makeRequest())
+    for (const severity of ['critical', 'major', 'minor', 'info']) {
+      expect(prompt).toMatch(new RegExp(`"${severity}":`))
+    }
+  })
+
+  it('tells the model not to report what it cannot point at', () => {
+    expect(buildReviewPrompt(makeRequest())).toMatch(/do not report it/i)
+  })
+
   it('includes each rule', () => {
     const prompt = buildReviewPrompt(
       makeRequest({ rules: ['No Side Effects'] }),

@@ -13,12 +13,30 @@ export type SizeCheck =
 const SYSTEM_INSTRUCTION = `You are a meticulous senior code reviewer.
 Review the given diff and report concrete, actionable problems.
 Do not praise. Do not restate what the code does. Report only problems worth fixing.
-Assign each comment a severity: "critical", "major", "minor", or "info".
+
+Every context file below is shown with a line number before a tab on each line.
+Use those line numbers in the "line" field. Do not count lines yourself.
+Report a problem only if you can point at the exact line that contains it.
+If the code you want to complain about is not in the given files, do not report it.
+
+Assign each comment a severity:
+- "critical": the changed code is wrong or unsafe, and will fail or corrupt data as written
+- "major": the changed code will behave incorrectly in a plausible case
+- "minor": a real defect whose impact is small
+- "info": a suggestion that is safe to ignore
+
 Respond with JSON matching this shape:
 {"summary": string, "comments": [{"severity": string, "file": string, "line": number, "message": string}]}`
 
+function numberLines(content: string): string {
+  return content
+    .split('\n')
+    .map((line, index) => `${index + 1}\t${line}`)
+    .join('\n')
+}
+
 function renderContextFile(file: ContextFile): string {
-  return `File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\``
+  return `File: ${file.path}\n\`\`\`\n${numberLines(file.content)}\n\`\`\``
 }
 
 export function buildReviewPrompt(request: ReviewRequest): string {
