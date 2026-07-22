@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util'
 
-export const USAGE = `Usage: ai-review [options]
+export const USAGE = `Usage: exoc-review [options]
 
   --base <ref>       diff against <ref> instead of the working tree
   --staged           review only staged changes
