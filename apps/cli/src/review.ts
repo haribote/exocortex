@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { CLI_CONTEXT_BUDGET_TOKENS } from '@exocortex/contract'
-import { parseOptions, USAGE } from './args.js'
 import { requestReview } from './client.js'
 import { collectContext } from './collect.js'
+import { readEnv } from './env.js'
 import { formatReview } from './format.js'
 import { collectDiff, repoRoot } from './git.js'
+import { parseOptions, USAGE } from './review-args.js'
 
 const parsed = parseOptions(process.argv.slice(2))
 
@@ -21,15 +22,9 @@ if (values.help) {
   process.exit(0)
 }
 
-const endpoint = process.env.EXOCORTEX_ENDPOINT
-const token = process.env.EXOCORTEX_TOKEN
-
-if (!endpoint || !token) {
-  console.error('EXOCORTEX_ENDPOINT and EXOCORTEX_TOKEN must be set')
-  process.exit(1)
-}
-
 try {
+  const { endpoint, token } = readEnv()
+
   const root = repoRoot(process.cwd())
   const { diff, changedFiles } = collectDiff({
     cwd: root,

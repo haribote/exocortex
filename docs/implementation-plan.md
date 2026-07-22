@@ -4,7 +4,7 @@
 
 **Goal:** Mac から HTTP 経由でローカル LLM にコードレビューと日英翻訳を依頼できる仕組みを作る。
 
-**Architecture:** pnpm workspace のモノレポ。`packages/contract` が型と JSON Schema の唯一の正で、`apps/api`（Hono、WSL2 上の Docker で動く）と `apps/cli`（Mac 上で動く `ai-review` コマンド）が両方これに依存する。api は AI ロジックだけ、cli は git とファイルシステムだけを知る。
+**Architecture:** pnpm workspace のモノレポ。`packages/contract` が型と JSON Schema の唯一の正で、`apps/api`（Hono、WSL2 上の Docker で動く）と `apps/cli`（Mac 上で動く `exoc-review` と `exoc-translate` コマンド）が両方これに依存する。api は AI ロジックだけ、cli は git とファイルシステムだけを知る。
 
 **Tech Stack:** Node.js 24 (LTS) / pnpm 11 / TypeScript 7.0 / Hono 4 / Zod 4 / Vitest 4 / Biome 2 / Docker Compose / Ollama
 
@@ -67,8 +67,12 @@ exocortex/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── src/
-│           ├── index.ts            # エントリポイント、配線
-│           ├── args.ts             # 引数解析と使い方の文言
+│           ├── review.ts           # exoc-review のエントリポイント、配線
+│           ├── review-args.ts      # review の引数解析と使い方の文言
+│           ├── translate.ts        # exoc-translate のエントリポイント
+│           ├── translate-args.ts   # translate の引数解析と使い方の文言
+│           ├── env.ts              # endpoint と token の読み取り
+│           ├── stdin.ts            # 標準入力の読み取り
 │           ├── git.ts              # diff と変更ファイルの取得
 │           ├── collect.ts          # 文脈の収集と優先度詰め
 │           ├── related.ts          # rg による import / importer / docs の逆引き
@@ -1891,7 +1895,7 @@ git commit -m "chore: add docker compose setup"
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "ai-review": "./dist/index.js" },
+  "bin": { "exoc-review": "./dist/review.js" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
@@ -2923,7 +2927,7 @@ try {
 ```
 
 `--help` を宣言するのは、`node:util` の `parseArgs` が既定で strict モードであり、宣言していないオプションを渡されると例外を投げるためである。
-Task 12 の確認手順に `ai-review --help` が動くことが含まれているため、ここで対応しておく。
+Task 13 の確認手順に `exoc-review --help` が動くことが含まれているため、ここで対応しておく。
 `values.help` のチェックは環境変数のチェックより前に置き、`--help` だけならトークン未設定でも動くようにする。
 
 `parseArgs` を try で包むのは、strict モードの例外がそのまま外に出ると Node の stack trace が表示されるためである。
@@ -3048,70 +3052,229 @@ git commit -m "docs: add windows setup runbook"
 
 ---
 
-## Task 12: Claude Code skill（dotfiles 側）
+## Task 12: CLI の改名と exoc-translate の追加
+
+skill 名と CLI のコマンド名を揃える。
+あわせて `POST /translate` を叩く経路を CLI に用意する。
+Task 6 で API 側は実装済みだが、CLI からは呼べないままだった。
+
+skill から `curl` で直接叩く案は採らない。
+token の扱いとエラー処理が skill 側に漏れ、CLI を経由しない経路が 1 本増えるためである。
+
+**Files:**
+- Rename: `apps/cli/src/index.ts` → `review.ts`, `apps/cli/src/args.ts` → `review-args.ts`
+- Create: `apps/cli/src/translate.ts`, `apps/cli/src/translate-args.ts`, `apps/cli/src/env.ts`, `apps/cli/src/stdin.ts`
+- Modify: `apps/cli/package.json`, `apps/cli/src/client.ts`
+- Test: `apps/cli/src/env.test.ts`, `apps/cli/src/stdin.test.ts`, `apps/cli/src/translate-args.test.ts`, `apps/cli/src/client.test.ts`
+
+**Interfaces:**
+- Consumes: `translateRequestSchema`, `translateResponseSchema`, `languageCodeSchema`（Task 1）
+- Produces: `readEnv(): Env`、`readStdin(stream?): Promise<string>`、`parseTranslateOptions(args): ParsedTranslateOptions`、`requestTranslate(options): Promise<TranslateResponse>`。`bin` は `exoc-review` と `exoc-translate` の 2 つ
+
+- [ ] **Step 1: 改名する**
+
+`git mv` で 3 ファイルを改名し、`USAGE` の冒頭を `Usage: exoc-review [options]` にする。
+`package.json` の `bin` を `exoc-review: ./dist/review.js` にする。
+
+`index.ts` を `review.ts` にするのは、entry が 2 つになった時点で `index` がどちらを指すか読めなくなるためである。
+`bin` の値とファイル名を対応させる。
+
+既存の `args.test.ts` は `USAGE` に各オプションが含まれることしか検証しておらず、コマンド名を検証していない。
+改名してもテストが壊れないということは、コマンド名が回帰から守られていないということである。
+`expect(USAGE).toContain('exoc-review')` を足す。
+
+- [ ] **Step 2: env.ts を切り出す**
+
+`index.ts` にあった環境変数の読み取りを `src/env.ts` に移し、2 つの entry で共有する。
+`process.exit(1)` ではなく throw にして、entry 側の既存の catch に集約する。
+
+```ts
+export function readEnv(): Env {
+  const endpoint = process.env.EXOCORTEX_ENDPOINT
+  const token = process.env.EXOCORTEX_TOKEN
+  if (!endpoint || !token) {
+    throw new Error('EXOCORTEX_ENDPOINT and EXOCORTEX_TOKEN must be set')
+  }
+  return { endpoint, token }
+}
+```
+
+- [ ] **Step 3: stdin.ts を実装する**
+
+`exoc-translate` は改行を含む文章を受けるため、標準入力を主経路にする。
+テストできるよう、ストリームを引数で受け取る形にする。
+
+```ts
+export async function readStdin(
+  stream: NodeJS.ReadableStream = process.stdin,
+): Promise<string>
+```
+
+- [ ] **Step 4: translate-args を実装する**
+
+`parseArgs` に `allowPositionals: true` が要る。review 側は付けていない。
+言語コードの検証は `@exocortex/contract` の `languageCodeSchema` で行い、CLI 側で `'ja' | 'en'` を再定義しない。
+
+`--from` と `--to` はどちらも必須とし、既定値も自動判定も持たせない。
+言語を取り違えたまま訳文が返ると、利用者はそれが逆方向の結果だと気付きにくい。
+
+戻り値は `--help` を独立した枝にした 3 値の union にする。
+
+```ts
+export type ParsedTranslateOptions =
+  | { ok: true; help: true }
+  | { ok: true; help: false; options: TranslateOptions }
+  | { ok: false; message: string }
+```
+
+`help` を `TranslateOptions` の中に置くと、`--help` だけを渡したときに `from` と `to` へダミーの言語を入れる羽目になる。
+読み手はそのダミーを意味のある既定値と誤読する。
+
+- [ ] **Step 5: client.ts に requestTranslate を足す**
+
+`POST /translate` は size check を持たないため 413 を返さない。
+したがって translate 側に 413 のリトライは要らない。
+
+共有するのは fetch の組み立て（`post`）と、401 / 502 / 503 / 504 のステータス対応（`httpError`）である。
+`httpError` は 413 に対して `null` を返し、review だけがそれをリトライとして扱う。
+
+- [ ] **Step 6: translate.ts を実装する**
+
+流れは、引数解析 → `--help` → `readEnv()` → 位置引数があればそれを、無ければ `readStdin()` → 空なら `no text to translate` で終了 → `requestTranslate` → 出力。
+
+翻訳結果は平文なので `format.ts` に相当するものは作らない。
+
+- [ ] **Step 7: ドキュメントを追随させる**
+
+`CLAUDE.md`、`README.md`、`docs/design.md`、`docs/setup-windows.md`、本ファイルの `ai-review` を置き換える。
+`docs/design.md` の CLI の節には `exoc-translate` の使用例と、翻訳方向を推測しない理由を足す。
+
+- [ ] **Step 8: 検証してコミットする**
+
+Run: `pnpm lint && pnpm test && pnpm build`
+Expected: すべて PASS
+
+```bash
+git commit -m "refactor(cli): rename ai-review command to exoc-review"
+git commit -m "feat(cli): add exoc-translate command"
+git commit -m "docs: rename cli commands and document exoc-translate"
+```
+
+---
+
+## Task 13: Claude Code skill（dotfiles 側）
 
 このタスクだけ exocortex リポジトリの外で作業する。skill は全リポジトリ横断で使う個人設定であり、特定プロダクトの持ち物ではないためである。
 
 **Files:**
-- Create: `~/Sites/github.com/haribote/dotfiles/.claude/skills/ai-review/SKILL.md`
+- Create: `~/Sites/github.com/haribote/dotfiles/.claude/skills/exoc-review/SKILL.md`
+- Create: `~/Sites/github.com/haribote/dotfiles/.claude/skills/exoc-translate/SKILL.md`
+- Modify: `~/Sites/github.com/haribote/dotfiles/.gitignore`
 
 **Interfaces:**
-- Consumes: `ai-review` コマンド（Task 10）
-- Produces: Claude Code から `/ai-review` で呼べる skill
+- Consumes: `exoc-review`, `exoc-translate` コマンド（Task 12）
+- Produces: Claude Code から `/exoc-review` と `/exoc-translate` で呼べる skill
 
 - [ ] **Step 1: CLI を PATH に通す**
 
 ```bash
 cd ~/Sites/github.com/haribote/exocortex
 pnpm build
-cat > ~/.local/bin/ai-review <<EOF
+
+cat > ~/.local/bin/exoc-review <<EOF
 #!/bin/sh
-exec node "$PWD/apps/cli/dist/index.js" "\$@"
+exec node "$PWD/apps/cli/dist/review.js" "\$@"
 EOF
-chmod +x ~/.local/bin/ai-review
+
+cat > ~/.local/bin/exoc-translate <<EOF
+#!/bin/sh
+exec node "$PWD/apps/cli/dist/translate.js" "\$@"
+EOF
+
+chmod +x ~/.local/bin/exoc-review ~/.local/bin/exoc-translate
 ```
 
-`tsc` は `dist` をビルドのたびに作り直すため、`dist/index.js` に付けた実行可能ビットは次の `pnpm build` で失われる。
-そのため `dist/index.js` を `PATH` へ直接シンボリックリンクする方式は、ビルドのたびに壊れる。
-代わりに実行可能ビットを持つラッパースクリプトを `~/.local/bin/ai-review` に置き、`node` 経由で `dist/index.js` を呼ぶ。
+`tsc` は `dist` をビルドのたびに作り直すため、`dist/*.js` に付けた実行可能ビットは次の `pnpm build` で失われる。
+そのため `dist` を `PATH` へ直接シンボリックリンクする方式は、ビルドのたびに壊れる。
+代わりに実行可能ビットを持つラッパースクリプトを `~/.local/bin/` に置き、`node` 経由で呼ぶ。
 ラッパーはビルドの対象外なので、実行可能ビットは `pnpm build` の影響を受けない。
+
 `pnpm link --global` も検討したが、pnpm のグローバル bin ディレクトリが `PATH` に通っていることを前提とするため見送った。
 このツール一つのために利用者のシェル設定を変更させることになる。
 ビルドスクリプト側に `chmod` を足す案もあるが、`chmod` の無い環境で `pnpm build` が失敗するようになるため採用しない。
-`apps/cli` のコードは `node:path` を使い、外部コマンドとしては `git` と `rg` しか呼ばないため、もともと Unix 固有の前提を持たない。
-ラッパーをリポジトリの外に置くことで、この前提をインストール手順にも保つ。
 
-確認: `ai-review --help` が動くこと。
+確認: `exoc-review --help` と `exoc-translate --help` が動くこと。
 
-- [ ] **Step 2: skill を書く**
+- [ ] **Step 2: skill を 2 つ書く**
 
-`SKILL.md` の frontmatter と本文を書く。中身は薄くする。CLI のオプションを列挙すると、CLI 側の変更で skill が腐るためである。
+既存 skill の規約に合わせる。
+`description` は二重引用符の日本語 1 段落で、「〜する時に使う」から始めて「〜で発動する」で終える。
+`user-invocable: true` を付ける。
+
+中身は薄くする。CLI のオプションを列挙すると、CLI 側の変更で skill が腐るためである。
+
+`.claude/skills/exoc-review/SKILL.md`:
 
 ```markdown
 ---
-name: ai-review
-description: ローカル LLM サーバー (exocortex) にコードレビューを依頼するときに使う。git diff と関連ファイルを集めて Windows の GPU マシンに送り、指摘を受け取る。「ローカルでレビューして」「exocortex でレビュー」などの依頼で発動する。
+name: exoc-review
+description: "ローカル LLM サーバー (exocortex) にコードレビューを依頼する時に使う。git diff と関連ファイルを集めて Windows の GPU マシンへ送り、指摘を受け取る。「ローカルでレビューして」「exocortex でレビュー」などの依頼で発動する。"
+user-invocable: true
+allowed-tools: "Bash(exoc-review:*)"
 ---
 
-# ai-review
+# exoc-review
 
-`ai-review` コマンドを実行してレビュー結果を受け取る。
+`exoc-review` コマンドを実行してレビュー結果を受け取る。
 
-オプションは `ai-review --help` で確認する。指定がなければ未コミットの変更をレビューする。
+オプションは `exoc-review --help` で確認する。指定がなければ未コミットの変更をレビューする。
 
 `EXOCORTEX_ENDPOINT` と `EXOCORTEX_TOKEN` が未設定の場合はその旨を伝えて終了する。勝手に値を推測しない。
 
 結果はそのまま提示する。指摘の取捨選択はユーザーが行う。ローカル LLM の指摘は誤りを含みうるので、明らかに誤っているものがあれば根拠を添えて指摘する。
 ```
 
-- [ ] **Step 3: 動作を確認してコミットする**
+`.claude/skills/exoc-translate/SKILL.md`:
 
-Claude Code を再起動し、`/ai-review` が候補に出ることを確認する。
+```markdown
+---
+name: exoc-translate
+description: "ローカル LLM サーバー (exocortex) に日英翻訳を依頼する時に使う。日本語から英語、英語から日本語へ翻訳する。「ローカルで翻訳して」「exocortex で翻訳」などの依頼で発動する。"
+user-invocable: true
+allowed-tools: "Bash(exoc-translate:*)"
+---
+
+# exoc-translate
+
+`exoc-translate` コマンドを実行して訳文を受け取る。翻訳方向は `--from` と `--to` で明示する。
+
+オプションは `exoc-translate --help` で確認する。改行を含む文章は標準入力から渡す。
+
+`EXOCORTEX_ENDPOINT` と `EXOCORTEX_TOKEN` が未設定の場合はその旨を伝えて終了する。勝手に値を推測しない。
+
+訳文はそのまま提示する。自分で訳し直したり、体裁を整えたりしない。
+```
+
+- [ ] **Step 3: .gitignore に除外解除を足す**
+
+dotfiles の `.gitignore` は `.claude/*` を除外したうえで、サードパーティ製の混入を防ぐために各 skill を個別に再 include する方式を採っている。
+これを忘れると skill が追跡されない。
+
+```
+!.claude/skills/exoc-review/
+!.claude/skills/exoc-translate/
+```
+
+確認: `git status` に 2 つの `SKILL.md` が現れること。
+
+- [ ] **Step 4: 動作を確認してコミットする**
+
+Claude Code を再起動し、`/exoc-review` と `/exoc-translate` が候補に出ることを確認する。
 
 ```bash
 cd ~/Sites/github.com/haribote/dotfiles
-git add .claude/skills/ai-review
-git commit -m "feat: add ai-review skill"
+git add .gitignore .claude/skills/exoc-review .claude/skills/exoc-translate
+git commit -m "feat(skills): add exoc-review and exoc-translate skills"
 ```
 
 ---
@@ -3121,6 +3284,7 @@ git commit -m "feat: add ai-review skill"
 - `pnpm lint && pnpm test && pnpm build` がすべて通る。
 - Windows 側に exocortex 専用の WSL ディストロが `D:\wsl\exocortex` に存在し、`wsl -l -v` で `VERSION 2` として見える。
 - Windows 側で `docker compose up -d` が成功し、`ollama ps` の `PROCESSOR` が `100% GPU`、`CONTEXT` が 32768 である（ComfyUI を終了した状態で確認する）。
-- Mac から `ai-review --base main` を実行してレビュー結果が返る。
-- Mac から `/translate` に日本語を投げて英訳が返る。
+- Mac から `exoc-review --base main` を実行してレビュー結果が返る。
+- Mac から `exoc-translate --from ja --to en` に日本語を投げて英訳が返る。
+- Claude Code から `/exoc-review` と `/exoc-translate` が呼べる。
 - `docs/setup-windows.md` の手順が、実機で上から順に通ることを確認済みである。

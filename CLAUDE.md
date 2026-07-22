@@ -12,7 +12,7 @@ pnpm workspace のモノレポ。
 |---|---|---|
 | `packages/contract` | Request/Response の型と JSON Schema。唯一の正 | 両方 |
 | `apps/api` | AI ロジック。プロンプト生成、Ollama 呼び出し、結果整形 | Windows/WSL2 |
-| `apps/cli` | `ai-review` コマンド。git diff と関連ファイルの収集 | Mac |
+| `apps/cli` | `exoc-review` と `exoc-translate` コマンド。git diff と関連ファイルの収集 | Mac |
 
 ## 責務の境界
 

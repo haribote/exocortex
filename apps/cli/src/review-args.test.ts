@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseOptions, USAGE } from './args.js'
+import { parseOptions, USAGE } from './review-args.js'
 
 describe('parseOptions', () => {
   it('defaults the language when it is not given', () => {
@@ -36,6 +36,10 @@ describe('parseOptions', () => {
 })
 
 describe('USAGE', () => {
+  it('names the command', () => {
+    expect(USAGE).toContain('exoc-review')
+  })
+
   it('documents every option parseOptions accepts', () => {
     for (const option of [
       '--base',

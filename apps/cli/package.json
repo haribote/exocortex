@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "ai-review": "./dist/index.js"
+    "exoc-review": "./dist/review.js",
+    "exoc-translate": "./dist/translate.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
