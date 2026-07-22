@@ -46,6 +46,7 @@ const validResult = JSON.stringify({
       severity: 'major',
       file: 'a.ts',
       line: 3,
+      quote: 'const a = 1',
       message: 'unchecked index access',
     },
   ],
@@ -210,5 +211,42 @@ describe('POST /review', () => {
     expect(res.status).toBe(502)
     const body = await res.json()
     expect(body.error).toBe('invalid_model_output')
+  })
+})
+
+describe('POST /review comment verification', () => {
+  const context = { files: [{ path: 'a.ts', content: 'const a = 1\n' }] }
+
+  function resultWith(quote: string) {
+    return JSON.stringify({
+      summary: 's',
+      comments: [
+        { severity: 'major', file: 'a.ts', line: 1, quote, message: 'm' },
+      ],
+    })
+  }
+
+  async function review(content: string) {
+    const app = appWith(fakeOllama({ content, totalDurationMs: 0 }))
+    const res = await app.request('/review', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ language: 'typescript', diff: 'd', context }),
+    })
+    return await res.json()
+  }
+
+  it('keeps a comment whose quote exists in the sent context', async () => {
+    const body = await review(resultWith('const a = 1'))
+
+    expect(body.comments).toHaveLength(1)
+    expect(body.meta.droppedComments).toBe(0)
+  })
+
+  it('drops a comment whose quote does not exist and counts it', async () => {
+    const body = await review(resultWith('const nope = 9'))
+
+    expect(body.comments).toHaveLength(0)
+    expect(body.meta.droppedComments).toBe(1)
   })
 })

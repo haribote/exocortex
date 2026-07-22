@@ -19,6 +19,11 @@ Use those line numbers in the "line" field. Do not count lines yourself.
 Report a problem only if you can point at the exact line that contains it.
 If the code you want to complain about is not in the given files, do not report it.
 
+Put the offending line in "quote", copied character for character from the file.
+Do not paraphrase it, do not reformat it, do not invent it.
+Every comment whose quote does not appear in the file is discarded before you are read,
+so a comment you cannot quote is a comment nobody sees.
+
 Assign each comment a severity:
 - "critical": the changed code is wrong or unsafe, and will fail or corrupt data as written
 - "major": the changed code will behave incorrectly in a plausible case
@@ -26,7 +31,7 @@ Assign each comment a severity:
 - "info": a suggestion that is safe to ignore
 
 Respond with JSON matching this shape:
-{"summary": string, "comments": [{"severity": string, "file": string, "line": number, "message": string}]}`
+{"summary": string, "comments": [{"severity": string, "file": string, "line": number, "quote": string, "message": string}]}`
 
 function numberLines(content: string): string {
   return content

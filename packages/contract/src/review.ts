@@ -20,6 +20,7 @@ export const reviewCommentSchema = z.object({
   severity: severitySchema,
   file: z.string(),
   line: z.number().int(),
+  quote: z.string(),
   message: z.string(),
 })
 
@@ -32,6 +33,7 @@ export const reviewMetaSchema = z.object({
   model: z.string(),
   inputTokens: z.number().int(),
   durationMs: z.number().int(),
+  droppedComments: z.number().int(),
 })
 
 export const reviewResponseSchema = z.object({

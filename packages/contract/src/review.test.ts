@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  reviewCommentSchema,
+  reviewMetaSchema,
   reviewRequestSchema,
   reviewResultJsonSchema,
   reviewResultSchema,
@@ -34,7 +36,9 @@ describe('reviewResultSchema', () => {
   it('accepts lowercase severities', () => {
     const result = {
       summary: 's',
-      comments: [{ severity: 'major', file: 'a.ts', line: 1, message: 'm' }],
+      comments: [
+        { severity: 'major', file: 'a.ts', line: 1, quote: 'q', message: 'm' },
+      ],
     }
     expect(reviewResultSchema.parse(result).comments[0]?.severity).toBe('major')
   })
@@ -46,5 +50,39 @@ describe('reviewResultJsonSchema', () => {
       type: 'object',
       properties: { summary: { type: 'string' }, comments: { type: 'array' } },
     })
+  })
+})
+
+describe('reviewCommentSchema', () => {
+  it('requires a verbatim quote of the offending code', () => {
+    const withoutQuote = {
+      severity: 'major',
+      file: 'a.ts',
+      line: 1,
+      message: 'm',
+    }
+    expect(() => reviewCommentSchema.parse(withoutQuote)).toThrow()
+    expect(
+      reviewCommentSchema.parse({ ...withoutQuote, quote: 'const a = 1' })
+        .quote,
+    ).toBe('const a = 1')
+  })
+})
+
+describe('reviewMetaSchema', () => {
+  it('reports how many comments were dropped as unverifiable', () => {
+    const meta = { model: 'm', inputTokens: 1, durationMs: 1 }
+    expect(() => reviewMetaSchema.parse(meta)).toThrow()
+    expect(
+      reviewMetaSchema.parse({ ...meta, droppedComments: 3 }).droppedComments,
+    ).toBe(3)
+  })
+})
+
+describe('reviewResultJsonSchema', () => {
+  it('makes the model produce a quote for every comment', () => {
+    const comment = reviewResultJsonSchema.properties.comments.items
+    expect(comment.properties).toHaveProperty('quote')
+    expect(comment.required).toContain('quote')
   })
 })

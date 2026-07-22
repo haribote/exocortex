@@ -21,7 +21,7 @@ const baseRequest: ReviewRequest = {
 const okBody = {
   summary: 's',
   comments: [],
-  meta: { model: 'm', inputTokens: 1, durationMs: 1 },
+  meta: { model: 'm', inputTokens: 1, durationMs: 1, droppedComments: 0 },
 }
 
 describe('requestReview', () => {

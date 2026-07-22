@@ -11,6 +11,7 @@ import {
   OllamaUnreachableError,
 } from '../ollama.js'
 import { buildReviewPrompt, checkInputSize } from './prompt.js'
+import { verifyComments } from './verify.js'
 
 export interface ReviewDeps {
   ollama: OllamaClient
@@ -93,10 +94,13 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
       )
     }
 
+    const verified = verifyComments(review.data.comments, request.context.files)
+
     return c.json({
       summary: review.data.summary,
-      comments: review.data.comments,
+      comments: verified.kept,
       meta: {
+        droppedComments: verified.dropped.length,
         model: deps.model,
         inputTokens: size.inputTokens,
         durationMs: result.totalDurationMs,
