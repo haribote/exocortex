@@ -1,6 +1,6 @@
-import type { ReviewRequest } from '@exocortex/contract'
+import type { ReviewRequest, TranslateRequest } from '@exocortex/contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { requestReview } from './client.js'
+import { requestReview, requestTranslate } from './client.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -360,5 +360,138 @@ describe('requestReview', () => {
       expect((error as Error).cause).toBe(dnsFailure)
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('requestTranslate', () => {
+  const translateRequest: TranslateRequest = {
+    text: 'こんにちは',
+    from: 'ja',
+    to: 'en',
+  }
+
+  function callTranslate() {
+    return requestTranslate({
+      endpoint: 'http://host:11435',
+      token: 'secret',
+      request: translateRequest,
+    })
+  }
+
+  it('posts the request to /translate with the bearer token', async () => {
+    let url: string | undefined
+    let headers: Headers | undefined
+    let body: unknown
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (requested: string, init: RequestInit) => {
+        url = requested
+        headers = new Headers(init.headers)
+        body = JSON.parse(String(init.body))
+        return new Response(JSON.stringify({ text: 'Hello' }))
+      }),
+    )
+
+    const response = await callTranslate()
+
+    expect(url).toBe('http://host:11435/translate')
+    expect(headers?.get('Authorization')).toBe('Bearer secret')
+    expect(body).toEqual(translateRequest)
+    expect(response.text).toBe('Hello')
+  })
+
+  it('rejects a response that does not match the translate contract', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ text: 42 }))),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/translate contract/)
+  })
+
+  it('reports an unreachable endpoint', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('fetch failed')
+      }),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/could not reach/)
+  })
+
+  it('reports a failed authentication on 401', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: 'unauthorized', message: 'nope' }),
+            { status: 401 },
+          ),
+      ),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/authentication failed/)
+  })
+
+  it('reports an ollama error on 502', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: 'ollama_error', message: 'boom' }),
+            { status: 502 },
+          ),
+      ),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/ollama returned an error/)
+  })
+
+  it('reports an unreachable ollama on 503', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: 'ollama_unreachable', message: 'down' }),
+            { status: 503 },
+          ),
+      ),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/could not reach ollama/)
+  })
+
+  it('reports a timeout on 504', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: 'inference_timeout', message: 'slow' }),
+            { status: 504 },
+          ),
+      ),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/timed out/)
+  })
+
+  it('reports an invalid request on 400', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ error: 'invalid_request', message: 'bad' }),
+            { status: 400 },
+          ),
+      ),
+    )
+
+    await expect(callTranslate()).rejects.toThrow(/400/)
   })
 })
