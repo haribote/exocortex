@@ -32,7 +32,7 @@ Mac                                Windows (RTX 5080)
 ─────────────────────────          ──────────────────────────────
 Claude Code ──┐                    WSL2 "exocortex" (D:\wsl\exocortex)
               │                      └ Docker Engine + Compose
-Codex ────────┼─→ ai-review CLI        ├─ ai-api  :11435 ← LAN に公開
+Codex ────────┼─→ exoc-* CLI          ├─ ai-api  :11435 ← LAN に公開
               │                        └─ ollama  :11434 ← 非公開
 shell ────────┘
                                    ComfyUI (Windows native) ← GPU を共有
