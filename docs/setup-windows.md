@@ -444,7 +444,7 @@ grep '^API_TOKEN=' .env
 ```bash
 # <distro>
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5-coder:14b
+docker compose exec ollama ollama pull qwen3:14b
 docker compose exec ollama ollama pull translategemma:12b
 ```
 
