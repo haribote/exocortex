@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { MAX_INPUT_TOKENS } from '@exocortex/contract'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createBuildReviewInput } from './input.js'
 
@@ -50,6 +51,29 @@ describe('createBuildReviewInput', () => {
     expect(result.input.diff).toContain('export const a = 999')
     expect(result.input.contextFiles.map((f) => f.path)).toContain('a.ts')
     expect(result.inputTokens).toBeGreaterThan(0)
+  })
+
+  it('reports too_large when the diff alone exceeds the input budget', async () => {
+    writeFileSync(join(repo, 'a.ts'), `${'x'.repeat(MAX_INPUT_TOKENS * 3)}\n`)
+    const result = await build(snapshot(), params)
+    expect(result.kind).toBe('too_large')
+  })
+
+  it('drops oversized context and keeps the prompt within the input budget', async () => {
+    writeFileSync(join(repo, 'CLAUDE.md'), 'y'.repeat(MAX_INPUT_TOKENS * 3))
+    git('add', '.')
+    git('commit', '-qm', 'huge rules')
+    writeFileSync(join(repo, 'a.ts'), 'export const a = 999\n')
+    const result = await build(snapshot(), params)
+
+    expect(result.kind).toBe('ok')
+    if (result.kind !== 'ok') return
+    expect(result.input.contextFiles.map((f) => f.path)).toContain('a.ts')
+    expect(result.input.contextFiles.map((f) => f.path)).not.toContain(
+      'CLAUDE.md',
+    )
+    expect(result.droppedContextFiles).toBeGreaterThan(0)
+    expect(result.inputTokens).toBeLessThanOrEqual(MAX_INPUT_TOKENS)
   })
 
   it('reports no_changes when the working tree matches HEAD', async () => {

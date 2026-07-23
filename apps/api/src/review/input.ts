@@ -1,11 +1,16 @@
 import {
-  CONTEXT_BUDGET_TOKENS,
   estimateTokens,
+  MAX_INPUT_TOKENS,
   type ReviewRequest,
 } from '@exocortex/contract'
-import { collectContext } from './context.js'
+import { collectCandidates } from './context.js'
 import { collectDiff } from './git.js'
-import { buildReviewPrompt, type ReviewPromptInput } from './prompt.js'
+import {
+  baseInputTokens,
+  buildReviewPrompt,
+  packContext,
+  type ReviewPromptInput,
+} from './prompt.js'
 import { extractSnapshot } from './snapshot.js'
 
 export type BuildInputResult =
@@ -36,23 +41,16 @@ export function createBuildReviewInput(): BuildReviewInput {
       if (diff.length === 0) {
         return { kind: 'no_changes' }
       }
-      if (estimateTokens(diff) > CONTEXT_BUDGET_TOKENS) {
+
+      const base = { language: params.language, diff, rules: params.rules }
+      if (baseInputTokens(base) > MAX_INPUT_TOKENS) {
         return { kind: 'too_large' }
       }
 
-      const { files, dropped } = collectContext({
-        root: dir,
-        changedFiles,
-        diff,
-        budgetTokens: CONTEXT_BUDGET_TOKENS,
-      })
+      const candidates = collectCandidates(dir, changedFiles)
+      const { files, dropped } = packContext(base, candidates)
 
-      const input: ReviewPromptInput = {
-        language: params.language,
-        diff,
-        rules: params.rules,
-        contextFiles: files,
-      }
+      const input: ReviewPromptInput = { ...base, contextFiles: files }
 
       return {
         kind: 'ok',

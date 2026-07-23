@@ -1,4 +1,8 @@
-import type { ContextFile } from '@exocortex/contract'
+import {
+  type ContextFile,
+  estimateTokens,
+  MAX_INPUT_TOKENS,
+} from '@exocortex/contract'
 
 export interface ReviewPromptInput {
   language: string
@@ -37,7 +41,7 @@ function numberLines(content: string): string {
     .join('\n')
 }
 
-function renderContextFile(file: ContextFile): string {
+export function renderContextFile(file: ContextFile): string {
   return `File: ${file.path}\n\`\`\`\n${numberLines(file.content)}\n\`\`\``
 }
 
@@ -57,4 +61,40 @@ export function buildReviewPrompt(input: ReviewPromptInput): string {
   sections.push(`Diff to review:\n\`\`\`diff\n${input.diff}\n\`\`\``)
 
   return sections.join('\n\n')
+}
+
+export type PromptBase = Omit<ReviewPromptInput, 'contextFiles'>
+
+export interface PackedContext {
+  files: ContextFile[]
+  dropped: number
+}
+
+// Cost is measured against the rendered prompt, not raw file content, so the
+// per-line numbering and code fences are counted. estimateTokens is superadditive
+// (ceil of parts >= ceil of whole), so keeping the running sum under the limit
+// keeps the final prompt under it too.
+export function baseInputTokens(base: PromptBase): number {
+  return estimateTokens(buildReviewPrompt({ ...base, contextFiles: [] }))
+}
+
+export function packContext(
+  base: PromptBase,
+  candidates: readonly ContextFile[],
+): PackedContext {
+  const files: ContextFile[] = []
+  let used = baseInputTokens(base)
+  let dropped = 0
+
+  for (const file of candidates) {
+    const cost = estimateTokens(renderContextFile(file)) + 1
+    if (used + cost > MAX_INPUT_TOKENS) {
+      dropped++
+      continue
+    }
+    files.push(file)
+    used += cost
+  }
+
+  return { files, dropped }
 }

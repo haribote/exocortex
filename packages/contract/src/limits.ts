@@ -2,9 +2,6 @@ export const MAX_CONTEXT_TOKENS = 32768
 export const RESERVED_OUTPUT_TOKENS = 4096
 export const MAX_INPUT_TOKENS = MAX_CONTEXT_TOKENS - RESERVED_OUTPUT_TOKENS
 
-export const PROMPT_OVERHEAD_TOKENS = 512
-export const CONTEXT_BUDGET_TOKENS = MAX_INPUT_TOKENS - PROMPT_OVERHEAD_TOKENS
-
 const CHARS_PER_TOKEN = 3
 
 export function estimateTokens(text: string): number {
