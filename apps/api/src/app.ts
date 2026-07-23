@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { bearerAuth } from './auth.js'
 import type { OllamaClient } from './ollama.js'
+import type { BuildReviewInput } from './review/input.js'
 import { registerReviewRoute } from './review/route.js'
 import { registerTranslateRoute } from './translate/route.js'
 
@@ -9,6 +10,7 @@ export interface AppDeps {
   ollama: OllamaClient
   reviewModel: string
   translateModel: string
+  buildReviewInput?: BuildReviewInput
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -19,7 +21,11 @@ export function createApp(deps: AppDeps): Hono {
   app.use('/review', bearerAuth(deps.apiToken))
   app.use('/translate', bearerAuth(deps.apiToken))
 
-  registerReviewRoute(app, { ollama: deps.ollama, model: deps.reviewModel })
+  registerReviewRoute(app, {
+    ollama: deps.ollama,
+    model: deps.reviewModel,
+    buildInput: deps.buildReviewInput,
+  })
   registerTranslateRoute(app, {
     ollama: deps.ollama,
     model: deps.translateModel,

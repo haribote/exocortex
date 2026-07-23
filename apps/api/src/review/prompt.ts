@@ -1,14 +1,15 @@
 import {
   type ContextFile,
-  type ContextFileSize,
   estimateTokens,
   MAX_INPUT_TOKENS,
-  type ReviewRequest,
 } from '@exocortex/contract'
 
-export type SizeCheck =
-  | { ok: true; inputTokens: number }
-  | { ok: false; inputTokens: number; contextFiles: ContextFileSize[] }
+export interface ReviewPromptInput {
+  language: string
+  diff: string
+  rules: string[]
+  contextFiles: ContextFile[]
+}
 
 const SYSTEM_INSTRUCTION = `You are a meticulous senior code reviewer.
 Review the given diff and report concrete, actionable problems.
@@ -40,43 +41,60 @@ function numberLines(content: string): string {
     .join('\n')
 }
 
-function renderContextFile(file: ContextFile): string {
+export function renderContextFile(file: ContextFile): string {
   return `File: ${file.path}\n\`\`\`\n${numberLines(file.content)}\n\`\`\``
 }
 
-export function buildReviewPrompt(request: ReviewRequest): string {
-  const sections: string[] = [
-    SYSTEM_INSTRUCTION,
-    `Language: ${request.language}`,
-  ]
+export function buildReviewPrompt(input: ReviewPromptInput): string {
+  const sections: string[] = [SYSTEM_INSTRUCTION, `Language: ${input.language}`]
 
-  if (request.rules.length > 0) {
+  if (input.rules.length > 0) {
     sections.push(
-      `Project rules:\n${request.rules.map((r) => `- ${r}`).join('\n')}`,
+      `Project rules:\n${input.rules.map((r) => `- ${r}`).join('\n')}`,
     )
   }
 
-  for (const file of request.context.files) {
+  for (const file of input.contextFiles) {
     sections.push(renderContextFile(file))
   }
 
-  sections.push(`Diff to review:\n\`\`\`diff\n${request.diff}\n\`\`\``)
+  sections.push(`Diff to review:\n\`\`\`diff\n${input.diff}\n\`\`\``)
 
   return sections.join('\n\n')
 }
 
-export function checkInputSize(request: ReviewRequest): SizeCheck {
-  const inputTokens = estimateTokens(buildReviewPrompt(request))
-  if (inputTokens <= MAX_INPUT_TOKENS) {
-    return { ok: true, inputTokens }
+export type PromptBase = Omit<ReviewPromptInput, 'contextFiles'>
+
+export interface PackedContext {
+  files: ContextFile[]
+  dropped: number
+}
+
+// Cost is measured against the rendered prompt, not raw file content, so the
+// per-line numbering and code fences are counted. estimateTokens is superadditive
+// (ceil of parts >= ceil of whole), so keeping the running sum under the limit
+// keeps the final prompt under it too.
+export function baseInputTokens(base: PromptBase): number {
+  return estimateTokens(buildReviewPrompt({ ...base, contextFiles: [] }))
+}
+
+export function packContext(
+  base: PromptBase,
+  candidates: readonly ContextFile[],
+): PackedContext {
+  const files: ContextFile[] = []
+  let used = baseInputTokens(base)
+  let dropped = 0
+
+  for (const file of candidates) {
+    const cost = estimateTokens(renderContextFile(file)) + 1
+    if (used + cost > MAX_INPUT_TOKENS) {
+      dropped++
+      continue
+    }
+    files.push(file)
+    used += cost
   }
 
-  const contextFiles: ContextFileSize[] = request.context.files
-    .map((file) => ({
-      path: file.path,
-      estimatedTokens: estimateTokens(renderContextFile(file)),
-    }))
-    .sort((a, b) => b.estimatedTokens - a.estimatedTokens)
-
-  return { ok: false, inputTokens, contextFiles }
+  return { files, dropped }
 }

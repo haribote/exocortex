@@ -11,6 +11,8 @@ export interface DiffResult {
   changedFiles: string[]
 }
 
+export class InvalidBaseError extends Error {}
+
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', args, {
     cwd,
@@ -19,13 +21,9 @@ function git(cwd: string, args: string[]): string {
   })
 }
 
-export function repoRoot(cwd: string): string {
-  return git(cwd, ['rev-parse', '--show-toplevel']).trim()
-}
-
 function assertNotFlagLike(base: string): void {
   if (base.startsWith('-')) {
-    throw new Error(`base must not start with '-': ${base}`)
+    throw new InvalidBaseError(`base must not start with '-': ${base}`)
   }
 }
 
@@ -33,7 +31,7 @@ function assertBaseResolves(cwd: string, base: string): void {
   try {
     git(cwd, ['rev-parse', '--verify', '--end-of-options', base])
   } catch {
-    throw new Error(`base does not resolve to a git ref: ${base}`)
+    throw new InvalidBaseError(`base does not resolve to a git ref: ${base}`)
   }
 }
 
@@ -49,7 +47,7 @@ export function diffArgs(options: DiffOptions): string[] {
 
 export function collectDiff(options: DiffOptions): DiffResult {
   if (options.base && options.staged) {
-    throw new Error('base and staged are mutually exclusive')
+    throw new InvalidBaseError('base and staged are mutually exclusive')
   }
   if (options.base) {
     assertNotFlagLike(options.base)

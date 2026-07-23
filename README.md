@@ -31,14 +31,15 @@ Mac 上で動くエージェントは推論能力を持たず、LAN の向こう
 Mac                                Windows (RTX 5080)
 ─────────────────────────          ──────────────────────────────
 Claude Code ──┐                    WSL2 "exocortex" (D:\wsl\exocortex)
-              │                      └ Docker Engine + Compose
-Codex ────────┼─→ exoc-* CLI          ├─ ai-api  :11435 ← LAN に公開
+              │  snapshot を tar     └ Docker Engine + Compose
+Codex ────────┼─→ curl (skill) ─────→ ├─ ai-api  :11435 ← LAN に公開
               │                        └─ ollama  :11434 ← 非公開
 shell ────────┘
                                    ComfyUI (Windows native) ← GPU を共有
 ```
 
-Mac 側の CLI が git diff と関連ファイルを集めて送り、Windows 側の API がプロンプトの生成と推論、結果の整形を担います。
+Mac 側はリポジトリの snapshot を tar して送るだけで、Windows 側の API が diff の算出、関連ファイルの収集、プロンプトの生成、推論、結果の整形を担います。
+クライアントは配布物を持たず、skill と手打ちシェルが固定のレシピ（tar と curl）を実行します。
 Ollama は推論だけを担当し、LAN には公開しません。
 
 モデルは用途ごとに使い分けます。

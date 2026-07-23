@@ -7,14 +7,16 @@ export const contextFileSchema = z.object({
   content: z.string(),
 })
 
-export const reviewRequestSchema = z.object({
-  language: z.string(),
-  diff: z.string().min(1),
-  rules: z.array(z.string()).default([]),
-  context: z
-    .object({ files: z.array(contextFileSchema).default([]) })
-    .default({ files: [] }),
-})
+export const reviewRequestSchema = z
+  .object({
+    language: z.string(),
+    base: z.string().optional(),
+    staged: z.boolean().optional(),
+    rules: z.array(z.string()).default([]),
+  })
+  .refine((request) => !(request.base !== undefined && request.staged), {
+    message: 'base and staged are mutually exclusive',
+  })
 
 export const reviewCommentSchema = z.object({
   severity: severitySchema,
@@ -34,6 +36,7 @@ export const reviewMetaSchema = z.object({
   inputTokens: z.number().int(),
   durationMs: z.number().int(),
   droppedComments: z.number().int(),
+  droppedContextFiles: z.number().int(),
 })
 
 export const reviewResponseSchema = z.object({

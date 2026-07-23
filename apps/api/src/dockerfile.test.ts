@@ -59,4 +59,12 @@ describe('apps/api/Dockerfile', () => {
       ).toContain(`${workspacePath}/package.json`)
     },
   )
+
+  it('installs git and ripgrep for server-side context collection', () => {
+    expect(
+      dockerfile,
+      'the api runs git to compute the diff and rg to find related files',
+    ).toMatch(/apt-get install[^\n]*\bgit\b/)
+    expect(dockerfile).toMatch(/apt-get install[^\n]*\bripgrep\b/)
+  })
 })
