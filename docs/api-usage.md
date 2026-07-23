@@ -28,7 +28,7 @@ EXOCORTEX_TOKEN=<shared-secret>
 ```bash
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
-tar czf "$tmp/snapshot.tgz" -C "$root" \
+tar --no-mac-metadata -czf "$tmp/snapshot.tgz" -C "$root" \
   --null -T <(git -C "$root" ls-files -z --cached --others --exclude-standard) .git
 curl -sf -H "Authorization: Bearer $EXOCORTEX_TOKEN" \
   -F 'params={"language":"typescript","base":"main"}' \
@@ -39,8 +39,9 @@ rm -rf "$tmp"
 
 `.gitignore` の対象（`node_modules` など）は除外し、`.git` は含める。
 `.git` を含めるのは、サーバーが履歴に対して native の git を回して差分を求めるためである。
-macOS 既定の tar は bsdtar で、`--null -T` と `.git` の同時指定は GNU tar と挙動が食い違いやすい。
-動かない場合は `gtar` を使うか、file list を経由する等価な形に置き換える。
+`--no-mac-metadata` は macOS 固有のフラグで、`._*` の AppleDouble ファイルや `com.apple.provenance` などの拡張属性を snapshot に載せないためにある。
+これを付けないと展開先に余計なファイルが混ざる。
+サーバーは展開時に所有者を復元しない（`tar --no-same-owner`）ので、macOS 側の uid がそのまま持ち込まれて git が dubious ownership で止まることはない。
 
 ### レスポンス
 

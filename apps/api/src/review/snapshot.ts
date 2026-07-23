@@ -39,7 +39,10 @@ export async function extractSnapshot(
     const archive = join(root, 'snapshot.tgz')
     await mkdir(repo)
     await writeFile(archive, bytes)
-    await execFileAsync('tar', ['xzf', archive, '-C', repo])
+    // --no-same-owner: extract as the container user so the restored .git is
+    // owned by us, not the client's uid. Otherwise git rejects the repo with
+    // "detected dubious ownership".
+    await execFileAsync('tar', ['xzf', archive, '-C', repo, '--no-same-owner'])
     return { dir: repo, cleanup }
   } catch (cause) {
     await cleanup()
