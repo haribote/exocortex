@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { collectDiff, diffArgs, repoRoot } from './git.js'
+import { collectDiff, diffArgs } from './git.js'
 
 let cwd: string
 
@@ -29,12 +29,6 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
-})
-
-describe('repoRoot', () => {
-  it('returns the repository root', () => {
-    expect(repoRoot(cwd)).toBe(git('rev-parse', '--show-toplevel').trim())
-  })
 })
 
 describe('collectDiff', () => {

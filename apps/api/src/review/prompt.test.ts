@@ -1,39 +1,32 @@
-import {
-  estimateTokens,
-  MAX_INPUT_TOKENS,
-  type ReviewRequest,
-} from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
-import { buildReviewPrompt, checkInputSize } from './prompt.js'
+import { buildReviewPrompt, type ReviewPromptInput } from './prompt.js'
 
-function makeRequest(overrides: Partial<ReviewRequest> = {}): ReviewRequest {
+function makeInput(
+  overrides: Partial<ReviewPromptInput> = {},
+): ReviewPromptInput {
   return {
     language: 'typescript',
     diff: 'diff --git a/a.ts b/a.ts',
     rules: [],
-    context: { files: [] },
+    contextFiles: [],
     ...overrides,
   }
 }
 
 describe('buildReviewPrompt', () => {
   it('includes the diff', () => {
-    const prompt = buildReviewPrompt(makeRequest({ diff: 'MARKER_DIFF' }))
+    const prompt = buildReviewPrompt(makeInput({ diff: 'MARKER_DIFF' }))
     expect(prompt).toContain('MARKER_DIFF')
   })
 
   it('includes the language', () => {
-    expect(buildReviewPrompt(makeRequest({ language: 'rust' }))).toContain(
-      'rust',
-    )
+    expect(buildReviewPrompt(makeInput({ language: 'rust' }))).toContain('rust')
   })
 
   it('numbers every line of a context file', () => {
     const prompt = buildReviewPrompt(
-      makeRequest({
-        context: {
-          files: [{ path: 'a.ts', content: 'const a = 1\nconst b = 2' }],
-        },
+      makeInput({
+        contextFiles: [{ path: 'a.ts', content: 'const a = 1\nconst b = 2' }],
       }),
     )
     expect(prompt).toContain('1\tconst a = 1')
@@ -41,32 +34,30 @@ describe('buildReviewPrompt', () => {
   })
 
   it('tells the model that the line numbers are the ones to cite', () => {
-    const prompt = buildReviewPrompt(makeRequest())
+    const prompt = buildReviewPrompt(makeInput())
     expect(prompt).toMatch(/line number/i)
   })
 
   it('defines each severity so the model does not inflate them', () => {
-    const prompt = buildReviewPrompt(makeRequest())
+    const prompt = buildReviewPrompt(makeInput())
     for (const severity of ['critical', 'major', 'minor', 'info']) {
       expect(prompt).toMatch(new RegExp(`"${severity}":`))
     }
   })
 
   it('tells the model not to report what it cannot point at', () => {
-    expect(buildReviewPrompt(makeRequest())).toMatch(/do not report it/i)
+    expect(buildReviewPrompt(makeInput())).toMatch(/do not report it/i)
   })
 
   it('includes each rule', () => {
-    const prompt = buildReviewPrompt(
-      makeRequest({ rules: ['No Side Effects'] }),
-    )
+    const prompt = buildReviewPrompt(makeInput({ rules: ['No Side Effects'] }))
     expect(prompt).toContain('No Side Effects')
   })
 
   it('includes context files with their paths', () => {
     const prompt = buildReviewPrompt(
-      makeRequest({
-        context: { files: [{ path: 'src/a.ts', content: 'MARKER_CONTENT' }] },
+      makeInput({
+        contextFiles: [{ path: 'src/a.ts', content: 'MARKER_CONTENT' }],
       }),
     )
     expect(prompt).toContain('src/a.ts')
@@ -74,122 +65,18 @@ describe('buildReviewPrompt', () => {
   })
 
   it('states the required json shape to ground the model', () => {
-    const prompt = buildReviewPrompt(makeRequest())
+    const prompt = buildReviewPrompt(makeInput())
     expect(prompt).toContain('summary')
     expect(prompt).toContain('comments')
   })
 })
 
-describe('checkInputSize', () => {
-  it('accepts a small request', () => {
-    const check = checkInputSize(makeRequest())
-    expect(check.ok).toBe(true)
-  })
-
-  it('rejects a request whose context exceeds the input budget', () => {
-    const huge = 'x'.repeat(200_000)
-    const check = checkInputSize(
-      makeRequest({ context: { files: [{ path: 'big.ts', content: huge }] } }),
-    )
-    expect(check.ok).toBe(false)
-    if (!check.ok) {
-      expect(check.contextFiles[0]?.path).toBe('big.ts')
-    }
-  })
-
-  it('reports files ordered by estimated size, largest first', () => {
-    const check = checkInputSize(
-      makeRequest({
-        context: {
-          files: [
-            { path: 'small.ts', content: 'x'.repeat(1000) },
-            { path: 'big.ts', content: 'x'.repeat(200_000) },
-          ],
-        },
-      }),
-    )
-    expect(check.ok).toBe(false)
-    if (!check.ok) {
-      expect(check.contextFiles.map((f) => f.path)).toEqual([
-        'big.ts',
-        'small.ts',
-      ])
-    }
-  })
-
-  it('estimates a file token cost including its wrapper, not just its content', () => {
-    const check = checkInputSize(
-      makeRequest({
-        context: {
-          files: [
-            { path: 'a.ts', content: 'x'.repeat(200_000) },
-            { path: 'b.ts', content: 'y' },
-          ],
-        },
-      }),
-    )
-    expect(check.ok).toBe(false)
-    if (!check.ok) {
-      const b = check.contextFiles.find((f) => f.path === 'b.ts')
-      expect(b?.estimatedTokens).toBeGreaterThan(estimateTokens('y'))
-    }
-  })
-
-  it('accepts a request whose estimated tokens land exactly on the budget', () => {
-    const emptyRequest = makeRequest({
-      context: { files: [{ path: 'a.ts', content: '' }] },
-    })
-    const baseLength = buildReviewPrompt(emptyRequest).length
-    const targetLength = MAX_INPUT_TOKENS * 3
-    const padded = makeRequest({
-      context: {
-        files: [
-          { path: 'a.ts', content: 'x'.repeat(targetLength - baseLength) },
-        ],
-      },
-    })
-
-    expect(estimateTokens(buildReviewPrompt(padded))).toBe(MAX_INPUT_TOKENS)
-    const check = checkInputSize(padded)
-    expect(check.ok).toBe(true)
-  })
-
-  it('rejects a request whose estimated tokens land one over the budget', () => {
-    const emptyRequest = makeRequest({
-      context: { files: [{ path: 'a.ts', content: '' }] },
-    })
-    const baseLength = buildReviewPrompt(emptyRequest).length
-    const targetLength = MAX_INPUT_TOKENS * 3 + 1
-    const padded = makeRequest({
-      context: {
-        files: [
-          { path: 'a.ts', content: 'x'.repeat(targetLength - baseLength) },
-        ],
-      },
-    })
-
-    expect(estimateTokens(buildReviewPrompt(padded))).toBe(MAX_INPUT_TOKENS + 1)
-    const check = checkInputSize(padded)
-    expect(check.ok).toBe(false)
-  })
-
-  it('returns an empty file list when the diff alone overflows the budget', () => {
-    const check = checkInputSize(
-      makeRequest({ diff: 'x'.repeat(200_000), context: { files: [] } }),
-    )
-    expect(check.ok).toBe(false)
-    if (!check.ok) {
-      expect(check.contextFiles).toEqual([])
-    }
-  })
-})
-
 describe('buildReviewPrompt quote grounding', () => {
   it('requires a verbatim quote in the declared json shape', () => {
-    expect(buildReviewPrompt(makeRequest())).toContain('"quote"')
+    expect(buildReviewPrompt(makeInput())).toContain('"quote"')
   })
 
   it('warns that an unquotable comment will be discarded', () => {
-    expect(buildReviewPrompt(makeRequest())).toMatch(/discard/i)
+    expect(buildReviewPrompt(makeInput())).toMatch(/discard/i)
   })
 })

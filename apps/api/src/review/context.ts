@@ -10,9 +10,14 @@ export interface CollectOptions {
   budgetTokens: number
 }
 
+export interface CollectResult {
+  files: ContextFile[]
+  dropped: number
+}
+
 const RULE_FILES = ['CLAUDE.md', 'AGENTS.md', 'biome.json', '.eslintrc.json']
 
-export function collectContext(options: CollectOptions): ContextFile[] {
+export function collectContext(options: CollectOptions): CollectResult {
   const { root, changedFiles } = options
 
   const rules = RULE_FILES.filter((name) => existsSync(join(root, name)))
@@ -23,8 +28,9 @@ export function collectContext(options: CollectOptions): ContextFile[] {
   const ordered = [...changedFiles, ...rules, ...docs, ...importers, ...imports]
 
   const seen = new Set<string>()
-  const collected: ContextFile[] = []
+  const files: ContextFile[] = []
   let used = estimateTokens(options.diff)
+  let dropped = 0
 
   for (const path of ordered) {
     if (seen.has(path)) continue
@@ -35,11 +41,14 @@ export function collectContext(options: CollectOptions): ContextFile[] {
 
     const content = readFileSync(full, 'utf8')
     const cost = estimateTokens(content)
-    if (used + cost > options.budgetTokens) continue
+    if (used + cost > options.budgetTokens) {
+      dropped++
+      continue
+    }
 
-    collected.push({ path, content })
+    files.push({ path, content })
     used += cost
   }
 
-  return collected
+  return { files, dropped }
 }
