@@ -28,7 +28,7 @@ services:
     environment:
       OLLAMA_URL: http://ollama:11434
       API_TOKEN: ${API_TOKEN}
-      REVIEW_MODEL: ${REVIEW_MODEL:-qwen2.5-coder:14b}
+      REVIEW_MODEL: ${REVIEW_MODEL:-qwen3:14b}
       TRANSLATE_MODEL: ${TRANSLATE_MODEL:-translategemma:12b}
     depends_on:
       - ollama
