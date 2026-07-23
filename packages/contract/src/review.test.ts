@@ -9,17 +9,27 @@ import {
 
 describe('reviewRequestSchema', () => {
   it('accepts a minimal request and fills defaults', () => {
-    const parsed = reviewRequestSchema.parse({
-      language: 'typescript',
-      diff: 'diff --git a/a.ts b/a.ts',
-    })
+    const parsed = reviewRequestSchema.parse({ language: 'typescript' })
     expect(parsed.rules).toEqual([])
-    expect(parsed.context.files).toEqual([])
+    expect(parsed.base).toBeUndefined()
+    expect(parsed.staged).toBeUndefined()
   })
 
-  it('rejects an empty diff', () => {
+  it('carries the base ref and staged flag when given', () => {
+    const parsed = reviewRequestSchema.parse({
+      language: 'typescript',
+      base: 'main',
+    })
+    expect(parsed.base).toBe('main')
+  })
+
+  it('rejects base and staged given together', () => {
     expect(() =>
-      reviewRequestSchema.parse({ language: 'typescript', diff: '' }),
+      reviewRequestSchema.parse({
+        language: 'typescript',
+        base: 'main',
+        staged: true,
+      }),
     ).toThrow()
   })
 })
@@ -70,12 +80,16 @@ describe('reviewCommentSchema', () => {
 })
 
 describe('reviewMetaSchema', () => {
-  it('reports how many comments were dropped as unverifiable', () => {
+  it('reports how many comments and context files were dropped', () => {
     const meta = { model: 'm', inputTokens: 1, durationMs: 1 }
     expect(() => reviewMetaSchema.parse(meta)).toThrow()
-    expect(
-      reviewMetaSchema.parse({ ...meta, droppedComments: 3 }).droppedComments,
-    ).toBe(3)
+    const parsed = reviewMetaSchema.parse({
+      ...meta,
+      droppedComments: 3,
+      droppedContextFiles: 2,
+    })
+    expect(parsed.droppedComments).toBe(3)
+    expect(parsed.droppedContextFiles).toBe(2)
   })
 })
 

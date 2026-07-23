@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CLI_CONTEXT_BUDGET_TOKENS,
+  CONTEXT_BUDGET_TOKENS,
   estimateTokens,
   MAX_CONTEXT_TOKENS,
   MAX_INPUT_TOKENS,
@@ -15,11 +15,11 @@ describe('limits', () => {
     expect(MAX_INPUT_TOKENS).toBe(28672)
   })
 
-  it('leaves the cli a margin below the server budget', () => {
-    expect(CLI_CONTEXT_BUDGET_TOKENS).toBe(
+  it('leaves the context budget a margin below the input limit', () => {
+    expect(CONTEXT_BUDGET_TOKENS).toBe(
       MAX_INPUT_TOKENS - PROMPT_OVERHEAD_TOKENS,
     )
-    expect(CLI_CONTEXT_BUDGET_TOKENS).toBeLessThan(MAX_INPUT_TOKENS)
+    expect(CONTEXT_BUDGET_TOKENS).toBeLessThan(MAX_INPUT_TOKENS)
   })
 })
 
