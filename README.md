@@ -50,6 +50,8 @@ VRAM 16GB では両方のモデルを同時に常駐させられないため、O
 | コマンド          | `git`, `tar`, `curl`, `jq`                            |
 | Claude Code skill | `exoc-review`, `exoc-translate`                       |
 
+Mac で動作確認。Windows での利用は想定していない。
+
 ## ドキュメント
 
 - [Get started](docs/get-started.md)：サーバーとクライアントのセットアップガイド
