@@ -1,11 +1,10 @@
-# API の使い方
+# API reference
 
 `ai-api` が公開する HTTP エンドポイントと、クライアントからの叩き方をまとめる。
-クライアントは配布物を持たない。
-`~/.claude/skills/` の skill と手打ちのシェルが、ここに記す固定のレシピをそのまま実行する。
+クライアントは配布物を持たず、`~/.claude/skills/` の skill と手打ちのシェルが、ここに記す固定のレシピをそのまま実行する。
 
 認証は SSH の公開鍵認証に委ねる。
-`ai-api` は Windows の loopback にだけ publish しており、LAN からは到達できない。
+`ai-api` はサーバーの loopback にだけ publish しており、LAN からは到達できない。
 クライアントは SSH port forwarding でトンネルを張り、`localhost` 宛てに叩く。
 届いたリクエストは、すでに鍵認証を通ったものだけである。
 
@@ -17,7 +16,7 @@ ssh exocortex "wsl -d exocortex -- /bin/true"
 ssh -f -N -o ExitOnForwardFailure=yes -L 11435:127.0.0.1:11435 exocortex
 ```
 
-転送先を `localhost` ではなく `127.0.0.1` と書くのは、Windows 側で `localhost` が `::1` に解決されると届かないためである。
+転送先を `localhost` ではなく `127.0.0.1` と書くのは、サーバー側で `localhost` が `::1` に解決されると届かないためである。
 
 接続先は環境変数で渡す。
 
@@ -30,6 +29,14 @@ EXOCORTEX_ENDPOINT=http://localhost:11435
 ```bash
 pkill -f "11435:127.0.0.1:11435"
 ```
+
+## 目次
+
+- [POST /review](#post-review)
+  - [正規レシピ](#正規レシピ)
+  - [レスポンス](#レスポンス)
+- [POST /translate](#post-translate)
+- [エラー](#エラー)
 
 ## POST /review
 
@@ -60,7 +67,7 @@ rm -rf "$tmp"
 `.git` を含めるのは、サーバーが履歴に対して native の git を回して差分を求めるためである。
 `--no-mac-metadata` は macOS 固有のフラグで、`._*` の AppleDouble ファイルや `com.apple.provenance` などの拡張属性を snapshot に載せないためにある。
 これを付けないと展開先に余計なファイルが混ざる。
-サーバーは展開時に所有者を復元しない（`tar --no-same-owner`）ので、macOS 側の uid がそのまま持ち込まれて git が dubious ownership で止まることはない。
+サーバーは展開時に所有者を復元しない（`tar --no-same-owner`）ので、クライアント側の uid がそのまま持ち込まれて git が dubious ownership で止まることはない。
 
 ### レスポンス
 
@@ -101,7 +108,7 @@ curl -Nsf -H 'Content-Type: application/json' \
 
 `from` と `to` は必須で、翻訳方向は推測しない。
 
-`Content-Type` は `application/x-ndjson`。1 行 1 JSON で、行の種類は次のとおり。
+`Content-Type` は `application/x-ndjson` である。1 行 1 JSON で、行の種類は次のとおりである。
 
 | 行 | 意味 |
 |---|---|
