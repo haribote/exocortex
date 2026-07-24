@@ -130,7 +130,7 @@ Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP"
 `True` の場合は `administrators_authorized_keys` に置く。
 このファイルは Administrators と SYSTEM だけが読めるよう ACL を絞る必要がある。
 
-**実行（Administrators に属す場合）**
+**実行（True だった場合）**
 
 ```powershell
 # 管理者 PowerShell
@@ -138,7 +138,7 @@ Add-Content -Force -Path C:\ProgramData\ssh\administrators_authorized_keys -Valu
 icacls.exe "C:\ProgramData\ssh\administrators_authorized_keys" /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F"
 ```
 
-**実行（属さない場合）**
+**実行（False だった場合）**
 
 ```powershell
 # PowerShell
@@ -148,7 +148,15 @@ Add-Content -Force -Path $env:USERPROFILE\.ssh\authorized_keys -Value '<public-k
 
 **確認**
 
-該当するファイルを `Get-Content` で開く。
+```powershell
+# 管理者 PowerShell（True だった場合）
+Get-Content C:\ProgramData\ssh\administrators_authorized_keys
+```
+
+```powershell
+# PowerShell（False だった場合）
+Get-Content $env:USERPROFILE\.ssh\authorized_keys
+```
 
 - [ ] 公開鍵が 1 行だけ、途中で改行されずに入っている
 
