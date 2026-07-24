@@ -90,7 +90,7 @@ DHCP でアドレスが変わると、ここが古いままになり接続でき
 cat ~/.ssh/exocortex_ed25519.pub
 ```
 
-この内容が `<public-key>` である。以降の手順で使うので控えておく。
+- [ ] 表示された公開鍵を `<public-key>` として控えた（以降の手順で使う）
 
 ### 1.2 OpenSSH Server を導入する
 
@@ -112,7 +112,7 @@ Set-Service -Name sshd -StartupType 'Automatic'
 Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP"
 ```
 
-`Enabled` が `True` であれば、ファイアウォールルールは導入時に自動作成されている。
+- [ ] `Enabled` が `True` になっている（導入時に自動作成されるファイアウォールルール）
 
 ### 1.3 公開鍵を配置する
 
@@ -151,7 +151,9 @@ Add-Content -Force -Path $env:USERPROFILE\.ssh\authorized_keys -Value '<public-k
 
 **確認**
 
-該当するファイルを `Get-Content` で開き、公開鍵が 1 行だけ、途中で改行されずに入っていることを見る。
+該当するファイルを `Get-Content` で開く。
+
+- [ ] 公開鍵が 1 行だけ、途中で改行されずに入っている
 
 ### 1.4 パスワード認証を無効化する
 
@@ -173,7 +175,8 @@ Restart-Service sshd
 Select-String -Path C:\ProgramData\ssh\sshd_config -Pattern 'PasswordAuthentication|PubkeyAuthentication'
 ```
 
-`PasswordAuthentication no` と `PubkeyAuthentication yes` の両方が出ていれば設定できている。
+- [ ] `PasswordAuthentication no` が出ている
+- [ ] `PubkeyAuthentication yes` が出ている
 
 ### 1.5 LAN 内からだけ port 22 に届くようにする
 
@@ -199,8 +202,8 @@ Get-NetFirewallRule -Name OpenSSH-Server-In-TCP | Get-NetFirewallAddressFilter
 Get-NetConnectionProfile
 ```
 
-`RemoteAddress` が `LocalSubnet` になっていること、`NetworkCategory` は変えていないこと
-（`Public` のままで構わないこと）を確かめる。
+- [ ] `RemoteAddress` が `LocalSubnet` になっている
+- [ ] `NetworkCategory` を変えていない（`Public` のままでよい）
 
 **うまくいかないとき**
 
@@ -235,14 +238,12 @@ ssh exocortex "echo ok"
 
 **確認**
 
-パスワード認証が無効になっていることを確かめる。
-
 ```bash
 # クライアント
 ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no exocortex "echo should-fail"
 ```
 
-パスワードの入力を求められずに拒否されれば、鍵認証のみになっている。
+- [ ] パスワードの入力を求められずに拒否される（鍵認証のみになっている）
 
 ここまでで `ssh exocortex "<command>"` が使えるようになった。
 以降の手順は、原則としてこの形でクライアントから実行する。
@@ -262,7 +263,8 @@ ssh exocortex "wsl --version"
 
 **確認**
 
-`WSL バージョン` の行が 0.67.6 以降であれば、この先の手順が通る。
+- [ ] `WSL バージョン` の行が 0.67.6 以降になっている
+
 古い場合は `ssh exocortex "wsl --update"` で更新する。
 
 コマンド自体が認識されない場合、WSL が Microsoft Store 版ではなく古い Windows コンポーネント版である。
@@ -342,8 +344,7 @@ ssh exocortex "wsl --shutdown"
 ssh exocortex "wsl -d <distro> -- systemctl is-system-running"
 ```
 
-`running` または `degraded` が返れば systemd が動いている。
-`degraded` は一部のユニットが失敗している状態だが、Docker の導入には支障ない。
+- [ ] `running` または `degraded` が返っている（`degraded` は一部のユニットが失敗している状態だが、Docker の導入には支障ない）
 
 `System has not been booted with systemd` が返る場合、`wsl --shutdown` が効いていないか、`wsl.conf` の書式が誤っている。
 
@@ -377,7 +378,7 @@ Ollama がモデルファイルを読んで VRAM に転送する間のピーク�
 ssh exocortex "wsl -d <distro> -- ip addr show"
 ```
 
-サーバー側のネットワークインターフェイスと同じアドレスが見えていれば、mirrored が効いている。
+- [ ] サーバー側のネットワークインターフェイスと同じアドレスが見えている（mirrored が効いている）
 
 **うまくいかないとき**
 
@@ -403,7 +404,7 @@ Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -D
 Get-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}'
 ```
 
-`DefaultInboundAction` が `Allow` であれば設定できている。
+- [ ] `DefaultInboundAction` が `Allow` になっている
 
 ### 2.6 Docker Engine を導入する
 
@@ -497,7 +498,7 @@ sudo systemctl enable --now docker
 docker run --rm hello-world
 ```
 
-`Hello from Docker!` が表示されれば導入できている。
+- [ ] `Hello from Docker!` が表示される
 
 `permission denied` が出る場合は、入り直しが済んでいない。
 `ssh exocortex "wsl --terminate <distro>"` をもう一度実行してから試す。
@@ -542,7 +543,7 @@ sudo systemctl restart docker
 docker run --rm --gpus all ubuntu nvidia-smi
 ```
 
-GPU の名前と VRAM 容量が表示されれば、コンテナから GPU が見えている。
+- [ ] GPU の名前と VRAM 容量が表示される（コンテナから GPU が見えている）
 
 `nvidia-ctk runtime configure` の後に Docker を再起動し忘れていないかを確認する。
 それでも失敗する場合、ディストロの中に Linux 用の GPU ドライバを入れてしまっていないかを見る。
@@ -573,7 +574,8 @@ ls docker-compose.yml
 
 **確認**
 
-`docker-compose.yml` の一覧が表示されれば clone できている。
+- [ ] `docker-compose.yml` の一覧が表示される
+
 `.env` は作らなくて構わない。
 モデル名を既定から変えたいときだけ `.env.example` を写して使う。
 認証は SSH の公開鍵に委ねる（1 章ですでに完了している）。
@@ -602,14 +604,15 @@ docker compose ps
 docker compose exec ollama ollama list
 ```
 
-`ollama` と `ai-api` の両方が `running` で、モデルが 2 本並んでいれば成功である。
+- [ ] `ollama` と `ai-api` の両方が `running` になっている
+- [ ] モデルが 2 本並んでいる
 
 ```bash
 # クライアント（SSH 経由、ディストロ内）
 curl http://localhost:11435/health
 ```
 
-ディストロの中から `/health` が返れば、`ai-api` は動いている。
+- [ ] ディストロの中から `/health` が返る（`ai-api` が動いている）
 
 ### 2.10 VRAM の割り当てを確認する
 
@@ -627,8 +630,8 @@ docker compose exec ollama ollama ps
 
 **確認**
 
-`CONTEXT` が 32768 で、`PROCESSOR` が `100% GPU` であれば、モデルは VRAM に収まっている。
-`100% CPU` や部分ロードになっている場合、VRAM に収まっていない。
+- [ ] `CONTEXT` が 32768 になっている
+- [ ] `PROCESSOR` が `100% GPU` になっている（`100% CPU` や部分ロードは VRAM に収まっていない状態）
 
 この確認はセットアップ時の一度きりではない。
 `ollama ps` の `PROCESSOR` 列は、稼働中も定期的に見る価値がある。
@@ -666,7 +669,9 @@ curl -s -X POST http://localhost:11435/review \
 
 **確認**
 
-2 回の `durationMs` の差がモデルのロード時間にあたる。
+- [ ] 1 回目と 2 回目の `durationMs` を記録した
+
+2 回の差がモデルのロード時間にあたる。
 これは 2 回目の推論時間が 1 回目と等しいと仮定した近似で、ロード時間そのものを分離して測っているわけではない。
 
 ## 3. Claude Code skill を導入する
@@ -677,7 +682,8 @@ curl -s -X POST http://localhost:11435/review \
 
 **確認**
 
-導入が済んでいれば、Claude Code のセッションで skill 一覧に `exoc-review` と `exoc-translate` が現れる。
+- [ ] Claude Code のセッションで skill 一覧に `exoc-review` と `exoc-translate` が現れる
+
 使い方は [`how-to-use.md`](./how-to-use.md) にある。
 
 ## 4. 疎通確認
@@ -694,9 +700,7 @@ curl -m 5 http://<windows-ip>:11435/health
 
 **確認**
 
-**これは失敗するのが正しい状態である。**
-`ai-api` は loopback にだけ publish しているため、LAN からは到達できない。
-ここで応答が返る場合、`docker-compose.yml` の `ports:` にバインドアドレスが書かれているかを確認する。
+- [ ] 上のコマンドが失敗する（**これが正しい状態である。** `ai-api` は loopback にだけ publish しているため、LAN からは到達できない。応答が返る場合、`docker-compose.yml` の `ports:` にバインドアドレスが書かれているかを確認する）
 
 トンネルを張って叩き直す。
 
@@ -707,7 +711,8 @@ ssh -f -N -o ExitOnForwardFailure=yes -L 11435:127.0.0.1:11435 exocortex
 curl http://localhost:11435/health
 ```
 
-`{"status":"ok"}` が返れば、セットアップは完了である。
+- [ ] `{"status":"ok"}` が返る（セットアップは完了である）
+
 終わったらトンネルを閉じる。
 
 ```bash
