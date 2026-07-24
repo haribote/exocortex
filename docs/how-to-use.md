@@ -2,10 +2,6 @@
 
 exocortex の機能は、Claude Code の skill（`exoc-review` と `exoc-translate`）を通じて使う。
 [`get-started.md`](./get-started.md) で SSH 接続の確立まで済んでいることが前提である。
-以降の操作はすべてクライアント側から skill 経由で完結し、サーバーの前に戻る場面はない。
-
-両方の skill に共通する前提として、`ssh exocortex` が通っている必要がある。
-通らない場合、skill は設定を推測して直そうとはせず、その旨を伝えて終了する。
 
 ## exoc-review
 
@@ -72,7 +68,6 @@ ssh exocortex "wsl -d <distro> -- /bin/true"
 ```
 
 ディストロが起動すると、`systemctl enable` した Docker が上がり、コンテナが続いて起動する。
-`docker compose up` を打ち直す必要はない。
 
 ```bash
 # クライアント（SSH 経由）
