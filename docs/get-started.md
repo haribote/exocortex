@@ -664,47 +664,8 @@ curl -fsSL https://raw.githubusercontent.com/haribote/dotfiles/master/.claude/sk
 
 - [ ] Claude Code のセッションで skill 一覧に `exoc-review` と `exoc-translate` が現れる
 
-使い方は [`how-to-use.md`](./how-to-use.md) にある。
-
-## 4. 疎通確認
-
-サーバー再起動や WSL の停止のたびに、クライアントから見た到達性は失われる。
-最終確認として、実際に使うのと同じ経路（SSH トンネル）で疎通を確かめる。
-
-**実行**
-
-```bash
-# クライアント
-curl -m 5 http://<windows-ip>:11435/health
-```
-
-**確認**
-
-- [ ] 上のコマンドが失敗する（**これが正しい状態である。** `ai-api` は loopback にだけ publish しているため、LAN からは到達できない。応答が返る場合、`docker-compose.yml` の `ports:` にバインドアドレスが書かれているかを確認する）
-
-トンネルを張って叩き直す。
-
-```bash
-# クライアント
-ssh exocortex "wsl -d <distro> -- /bin/true"
-ssh -f -N -o ExitOnForwardFailure=yes -L 11435:127.0.0.1:11435 exocortex
-curl http://localhost:11435/health
-```
-
-- [ ] `{"status":"ok"}` が返る（セットアップは完了である）
-
-終わったらトンネルを閉じる。
-
-```bash
-# クライアント
-pkill -f "11435:127.0.0.1:11435"
-```
-
-トンネルは張れているのに応答が返らない場合、ほぼディストロが停止している。
-idle が続くと WSL の VM ごと落ちるため、`wsl -d <distro> -- /bin/true` で起こしてから張り直す。
-
-セットアップはここまでである。
-使うたびに行う操作は [`how-to-use.md`](./how-to-use.md) にある。
+セットアップは以上。
+各種機能の使い方は [`how-to-use.md`](./how-to-use.md) に記す。
 
 ## 撤収とやり直し
 
