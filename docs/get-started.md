@@ -81,6 +81,7 @@ Host exocortex
 
 `HostName` に指定する `<windows-ip>` は固定しておくことを推奨する。
 DHCP でアドレスが変わると、ここが古いままになり接続できなくなる。
+
 固定の方法はルーターによって異なるため、詳しくはルーターの説明書などを参照する。
 
 **確認**
@@ -122,13 +123,9 @@ Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP"
 **Administrators への所属確認**
 
 ```powershell
-# PowerShell（管理者権限は不要）
+# PowerShell
 (Get-LocalGroupMember -Group "Administrators").Name -contains "$env:COMPUTERNAME\$env:USERNAME"
 ```
-
-> **注意** `(New-Object Security.Principal.WindowsPrincipal(...)).IsInRole(...)` でも同じことを確認できるが、
-> 非昇格の PowerShell では UAC によるトークン分割のせいで、実際は Administrators のメンバーでも `False` を返す。
-> 上記の `Get-LocalGroupMember` は昇格の有無に影響されない。
 
 `True` の場合は `administrators_authorized_keys` に置く。
 このファイルは Administrators と SYSTEM だけが読めるよう ACL を絞る必要がある。
