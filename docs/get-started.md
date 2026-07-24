@@ -642,44 +642,6 @@ docker compose exec ollama ollama ps
 この確認はセットアップ時の一度きりではない。
 `ollama ps` の `PROCESSOR` 列は、稼働中も定期的に見る価値がある。
 
-### 2.11 モデルのロード時間を測る
-
-`OLLAMA_KEEP_ALIVE` は `5m` である。
-5 分アイドルが続くとモデルは VRAM から降り、次のリクエストで再ロードが挟まる。
-その所要時間を測っておく。
-
-**実行**
-
-```bash
-# クライアント（SSH 経由、ディストロ内）
-sudo apt install -y jq
-```
-
-```bash
-# クライアント（SSH 経由、ディストロ内）
-docker compose restart ollama
-sleep 5
-
-REQ='{"language":"typescript","diff":"diff --git a/a.ts b/a.ts\n+const x = 1\n"}'
-
-echo "--- 1st (after restart) ---"
-curl -s -X POST http://localhost:11435/review \
-  -H 'Content-Type: application/json' \
-  -d "$REQ" | jq -c '.meta'
-
-echo "--- 2nd (model resident) ---"
-curl -s -X POST http://localhost:11435/review \
-  -H 'Content-Type: application/json' \
-  -d "$REQ" | jq -c '.meta'
-```
-
-**確認**
-
-- [ ] 1 回目と 2 回目の `durationMs` を記録した
-
-2 回の差がモデルのロード時間にあたる。
-これは 2 回目の推論時間が 1 回目と等しいと仮定した近似で、ロード時間そのものを分離して測っているわけではない。
-
 ## 3. Claude Code skill を導入する
 
 `exoc-review` と `exoc-translate` は Claude Code の skill で、この repo には含まれない。
