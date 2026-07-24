@@ -703,70 +703,8 @@ pkill -f "11435:127.0.0.1:11435"
 トンネルは張れているのに応答が返らない場合、ほぼディストロが停止している。
 idle が続くと WSL の VM ごと落ちるため、`wsl -d <distro> -- /bin/true` で起こしてから張り直す。
 
-## 日常の操作
-
 セットアップはここまでである。
-以降は使うたびに行う操作をまとめる。
-
-サーバーを再起動すると WSL の VM が停止するため、クライアントから呼んでも届かない。
-`docker-compose.yml` の `restart: unless-stopped` が担保するのはコンテナの再起動だけで、自動起動は成立しない。
-タスクスケジューラでログオン時に起動する方法も試したが、`vmIdleTimeout`（既定 60 秒）により、Docker が上がった直後に WSL の VM ごと停止することが分かっている。
-`vmIdleTimeout` を延長する設定も効かなかったため、使う前に手動で起動する運用にしている。
-
-### 起動する
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl -d <distro> -- /bin/true"
-```
-
-ディストロが起動すると、`systemctl enable` した Docker が上がり、コンテナが続いて起動する。
-`docker compose up` を打ち直す必要はない。
-
-### 状態を確認する
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl -d <distro> -- docker ps --format \"{{.Names}} {{.Status}}\""
-```
-
-`ai-api` と `ollama` の 2 つが並べば、クライアントから使える状態である。
-
-モデルがどこに載っているかも確認できる。
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl -d <distro> -- bash -c 'cd ~/exocortex && docker compose exec ollama ollama ps'"
-```
-
-`PROCESSOR` が `100% GPU` でなければ、他のプロセスに VRAM を奪われている。
-
-### 再起動する
-
-コンテナだけを入れ直す。
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl -d <distro> -- bash -c 'cd ~/exocortex && docker compose restart'"
-```
-
-コードを更新したときは、イメージを作り直す。
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl -d <distro> -- bash -c 'cd ~/exocortex && git pull && docker compose up -d --build'"
-```
-
-### 停止する
-
-```bash
-# クライアント（SSH 経由）
-ssh exocortex "wsl --terminate <distro>"
-```
-
-コンテナは道連れに停止する。
-`wsl --shutdown` でも止まるが、こちらは実行中のすべてのディストロを終了させる。
-他のディストロを使っているなら `--terminate` を選ぶ。
+使うたびに行う操作は [`how-to-use.md`](./how-to-use.md) にある。
 
 ## 撤収とやり直し
 

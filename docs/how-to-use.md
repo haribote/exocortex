@@ -56,3 +56,43 @@ Claude Code に「ローカルで翻訳して」「exocortex で翻訳」のよ�
 その旨とエラーの内容が伝えられる。
 
 訳文はそのまま提示され、体裁の調整や訳し直しは行われない。
+
+## サーバーの起動・再起動・シャットダウン
+
+`<distro>` は exocortex をセットアップに使った WSL ディストロ名に置き換える。
+
+サーバーを Windows ごと再起動するなどして WSL の VM が停止すると、クライアントから呼んでも届かない。
+そのような時は手動で exocortex を起動する。
+
+### 起動する
+
+```bash
+# クライアント（SSH 経由）
+ssh exocortex "wsl -d <distro> -- /bin/true"
+```
+
+ディストロが起動すると、`systemctl enable` した Docker が上がり、コンテナが続いて起動する。
+`docker compose up` を打ち直す必要はない。
+
+```bash
+# クライアント（SSH 経由）
+ssh exocortex "wsl -d <distro> -- docker ps --format \"{{.Names}} {{.Status}}\""
+```
+
+`ai-api` と `ollama` の 2 つが並べば、クライアントから使える状態である。
+
+### 再起動する
+
+```bash
+# クライアント（SSH 経由）
+ssh exocortex "wsl -d <distro> -- bash -c 'cd ~/exocortex && docker compose restart'"
+```
+
+### シャットダウンする
+
+```bash
+# クライアント（SSH 経由）
+ssh exocortex "wsl --terminate <distro>"
+```
+
+exocortex が入ったディストロだけが停止する。
