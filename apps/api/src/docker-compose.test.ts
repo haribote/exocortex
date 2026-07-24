@@ -47,7 +47,7 @@ describe('docker-compose.yml', () => {
   it('does not publish any ports for the ollama service', () => {
     expect(
       ollama.ports,
-      'ollama must not declare "ports": doing so exposes the unauthenticated Ollama inference API directly to the LAN, defeating the structural guarantee described in docs/design.md',
+      'ollama must not declare "ports": doing so exposes the unauthenticated Ollama inference API directly to the LAN, defeating the structural guarantee that only ai-api is reachable from outside the compose network',
     ).toBeUndefined()
   })
 
