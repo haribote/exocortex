@@ -88,20 +88,39 @@ rm -rf "$tmp"
 ## POST /translate
 
 リポジトリを持たないので snapshot は要らない。
-JSON を直接 POST する。
+JSON を直接 POST する。レスポンスは NDJSON のストリームで返る。
+バッファされないよう `curl` には `-N` を付ける。
 
 ```bash
-curl -sf -H 'Content-Type: application/json' \
+curl -Nsf -H 'Content-Type: application/json' \
   -d '{"text":"こんにちは","from":"ja","to":"en"}' \
   "$EXOCORTEX_ENDPOINT/translate"
-# → {"text":"Hello"}
+# {"delta":"Hello"}
+# {"done":true,"meta":{"model":"translategemma:12b","durationMs":870}}
 ```
 
 `from` と `to` は必須で、翻訳方向は推測しない。
 
+`Content-Type` は `application/x-ndjson`。1 行 1 JSON で、行の種類は次のとおり。
+
+| 行 | 意味 |
+|---|---|
+| `{"delta":"..."}` | 訳文の断片。到着順に連結すると訳文になる |
+| `{"heartbeat":true}` | 初回 delta が出るまでの生存信号。無視してよい |
+| `{"done":true,"meta":{...}}` | 正常終了。これが来たら成功 |
+| `{"error":"...","message":"..."}` | 途中失敗。訳文は不完全 |
+
+モデルのロードには 30 秒ほどかかることがあり、その間は `heartbeat` だけが流れる。
+
+**HTTP 200 は成功を意味しない。** ストリームを開始した時点でステータスは確定するため、
+生成の途中で失敗しても 200 のまま `error` 行で終わる。
+成功判定は `done` 行の到達で行う。`done` も `error` も来ずにストリームが切れたら失敗として扱う。
+
 ## エラー
 
 クライアントが次の行動を選べる粒度で返す。
+
+`/review` はレスポンス全体を 1 つの JSON で返すため、下表の HTTP ステータスがそのまま返る。
 
 | 状況 | HTTP | error |
 |---|---|---|
@@ -112,3 +131,6 @@ curl -sf -H 'Content-Type: application/json' \
 | snapshot 過大、または diff 単体が context 予算を超過 | 413 | `snapshot_too_large` / `context_too_large` |
 
 エラーの body は `{ "error": string, "message": string }` である。
+
+`/translate` は、ストリームを開始する前の失敗（到達不可・即時のモデル不在など）は上表と同じ
+HTTP ステータス + JSON body で返す。開始後の失敗は同じ `error` slug を `error` 行として NDJSON に流す。

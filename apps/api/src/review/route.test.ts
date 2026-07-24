@@ -17,7 +17,7 @@ import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 function fakeOllama(
   result: OllamaChatResult,
   capture?: (r: OllamaChatRequest) => void,
-): OllamaClient {
+): Pick<OllamaClient, 'chat'> {
   return {
     async chat(request) {
       capture?.(request)
@@ -42,9 +42,17 @@ function fakeBuild(result: BuildInputResult | (() => never)): BuildReviewInput {
   return async () => (typeof result === 'function' ? result() : result)
 }
 
-function appWith(ollama: OllamaClient, buildReviewInput?: BuildReviewInput) {
+function appWith(
+  ollama: Pick<OllamaClient, 'chat'>,
+  buildReviewInput?: BuildReviewInput,
+) {
   return createApp({
-    ollama,
+    ollama: {
+      async chatStream() {
+        throw new Error('chatStream is not used by /review')
+      },
+      ...ollama,
+    },
     reviewModel: 'qwen2.5-coder:14b',
     translateModel: 'test-translate-model',
     buildReviewInput: buildReviewInput ?? fakeBuild(okInput),
