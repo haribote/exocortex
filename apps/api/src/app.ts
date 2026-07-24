@@ -9,6 +9,8 @@ export interface AppDeps {
   reviewModel: string
   translateModel: string
   buildReviewInput?: BuildReviewInput
+  heartbeatMs?: number
+  headersGraceMs?: number
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -24,6 +26,8 @@ export function createApp(deps: AppDeps): Hono {
   registerTranslateRoute(app, {
     ollama: deps.ollama,
     model: deps.translateModel,
+    heartbeatMs: deps.heartbeatMs,
+    headersGraceMs: deps.headersGraceMs,
   })
 
   return app
