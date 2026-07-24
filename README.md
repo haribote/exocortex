@@ -56,5 +56,17 @@ Mac で動作確認。Windows での利用は想定していない。
 ## ドキュメント
 
 - [Get started](docs/get-started.md)：サーバーとクライアントのセットアップガイド
+  - [この文書の読み方](docs/get-started.md#この文書の読み方)
+  - [前提](docs/get-started.md#前提)
+  - [1. SSH 接続を確立する](docs/get-started.md#1-ssh-接続を確立する)
+  - [2. サーバー（Windows/WSL2）をセットアップする](docs/get-started.md#2-サーバーwindowswsl2をセットアップする)
+  - [3. Claude Code skill を導入する](docs/get-started.md#3-claude-code-skill-を導入する)
+  - [撤収とやり直し](docs/get-started.md#撤収とやり直し)
 - [How to use](docs/how-to-use.md)：skill を通じた使い方ガイド
+  - [exoc-review](docs/how-to-use.md#exoc-review)
+  - [exoc-translate](docs/how-to-use.md#exoc-translate)
+  - [サーバーの起動・再起動・シャットダウン](docs/how-to-use.md#サーバーの起動再起動シャットダウン)
 - [API reference](docs/api-reference.md)
+  - [POST /review](docs/api-reference.md#post-review)
+  - [POST /translate](docs/api-reference.md#post-translate)
+  - [エラー](docs/api-reference.md#エラー)
