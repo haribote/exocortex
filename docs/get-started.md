@@ -185,7 +185,7 @@ Select-String -Path C:\ProgramData\ssh\sshd_config -Pattern 'PasswordAuthenticat
 
 ### 1.5 LAN 内からだけ port 22 に届くようにする
 
-サーバーの既定はネットワーク プロファイルを `Public` のままにし、必要なポートだけピンポイントで
+サーバーの既定はネットワークプロファイルは `Public` を選択し、必要なポートだけピンポイントで
 開けることを勧める。
 ネットワーク全体を `Private` に変えると、ネットワーク検出やファイル共有まで有効になり、
 SSH を通したいだけの目的に対して余計な露出が増える。
