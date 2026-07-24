@@ -644,9 +644,21 @@ docker compose exec ollama ollama ps
 
 ## 3. Claude Code skill を導入する
 
-`exoc-review` と `exoc-translate` は Claude Code の skill で、この repo には含まれない。
-全リポジトリ横断で使う個人設定として、dotfiles 側の `~/.claude/skills/` で管理する。
-導入方法は dotfiles 側の管理手順に従う。
+クライアント側の Claude Code から推論サーバーの機能を呼び出すための skill は以下よりコピーできる。
+
+**実行**
+
+```bash
+# クライアント
+mkdir -p ~/.claude/skills/exoc-review ~/.claude/skills/exoc-translate
+curl -fsSL https://raw.githubusercontent.com/haribote/dotfiles/master/.claude/skills/exoc-review/SKILL.md -o ~/.claude/skills/exoc-review/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/haribote/dotfiles/master/.claude/skills/exoc-translate/SKILL.md -o ~/.claude/skills/exoc-translate/SKILL.md
+```
+
+ソースは次のとおり。
+
+- exoc-review：https://github.com/haribote/dotfiles/blob/master/.claude/skills/exoc-review/SKILL.md
+- exoc-translate：https://github.com/haribote/dotfiles/blob/master/.claude/skills/exoc-translate/SKILL.md
 
 **確認**
 
