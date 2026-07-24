@@ -30,6 +30,14 @@ EXOCORTEX_ENDPOINT=http://localhost:11435
 pkill -f "11435:127.0.0.1:11435"
 ```
 
+## 目次
+
+- [POST /review](#post-review)
+  - [正規レシピ](#正規レシピ)
+  - [レスポンス](#レスポンス)
+- [POST /translate](#post-translate)
+- [エラー](#エラー)
+
 ## POST /review
 
 リクエストは `multipart/form-data` で、2 つのパートを持つ。
