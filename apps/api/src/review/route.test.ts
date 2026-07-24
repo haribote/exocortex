@@ -44,15 +44,12 @@ function fakeBuild(result: BuildInputResult | (() => never)): BuildReviewInput {
 
 function appWith(ollama: OllamaClient, buildReviewInput?: BuildReviewInput) {
   return createApp({
-    apiToken: 'secret',
     ollama,
     reviewModel: 'qwen2.5-coder:14b',
     translateModel: 'test-translate-model',
     buildReviewInput: buildReviewInput ?? fakeBuild(okInput),
   })
 }
-
-const auth = { Authorization: 'Bearer secret' }
 
 function form(
   params: unknown,
@@ -74,7 +71,7 @@ function form(
 }
 
 function post(app: ReturnType<typeof appWith>, body: FormData) {
-  return app.request('/review', { method: 'POST', headers: auth, body })
+  return app.request('/review', { method: 'POST', body })
 }
 
 const validResult = JSON.stringify({

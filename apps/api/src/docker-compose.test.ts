@@ -58,7 +58,7 @@ describe('docker-compose.yml', () => {
     ).toBeUndefined()
   })
 
-  it('publishes ai-api on 11435 with matching host and container ports', () => {
+  it('publishes ai-api on loopback only, with matching host and container ports', () => {
     const ports = aiApi.ports
     if (!Array.isArray(ports)) {
       throw new Error('ai-api.ports is not an array')
@@ -68,14 +68,21 @@ describe('docker-compose.yml', () => {
     if (typeof mapping !== 'string') {
       throw new Error('ai-api.ports[0] is not a string')
     }
-    const [hostPort, containerPort] = mapping.split(':')
+    const [bindAddress, hostPort, containerPort] = mapping.split(':')
+    expect(
+      bindAddress,
+      'ai-api must bind to 127.0.0.1: publishing on every interface exposes the now unauthenticated API to the LAN, and clients are expected to reach it through an SSH tunnel instead',
+    ).toBe('127.0.0.1')
     expect(hostPort).toBe('11435')
     expect(containerPort).toBe('11435')
   })
 
-  it('reads API_TOKEN for ai-api from the environment instead of hardcoding it', () => {
+  it('passes no API_TOKEN to ai-api', () => {
     const environment = getEnvironment(aiApi)
-    expect(environment.API_TOKEN).toBe(`\${API_TOKEN}`)
+    expect(
+      environment.API_TOKEN,
+      'ai-api no longer authenticates requests: access is restricted by the loopback bind plus an SSH tunnel, so a leftover API_TOKEN would only be a stale secret to manage',
+    ).toBeUndefined()
   })
 
   it('sets OLLAMA_CONTEXT_LENGTH and OLLAMA_KV_CACHE_TYPE for the 32K + q8_0 VRAM budget', () => {
