@@ -1,6 +1,6 @@
 # exocortex 実装計画
 
-> **注意（このファイルは初期実装の記録です）:** ここに書かれた `apps/cli` を中心とする構成は、その後の再設計で置き換えられました。現在は文脈収集をすべて `apps/api` に集約し、クライアントは snapshot を tar して送るレシピだけを持ちます。最新の設計は `docs/design.md`、HTTP 契約は `docs/api-usage.md` を参照してください。以下は初期実装のタスク分解の記録として残します。
+> **注意（このファイルは初期実装の記録です）:** ここに書かれた `apps/cli` を中心とする構成は、その後の再設計で置き換えられました。現在は文脈収集をすべて `apps/api` に集約し、クライアントは snapshot を tar して送るレシピだけを持ちます。Task 2 の Bearer 認証も廃止済みで、認証は SSH の公開鍵に委ね、クライアントは SSH トンネル越しに `localhost` を叩きます。最新の設計は `docs/design.md`、HTTP 契約は `docs/api-usage.md` を参照してください。以下は初期実装のタスク分解の記録として残します。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

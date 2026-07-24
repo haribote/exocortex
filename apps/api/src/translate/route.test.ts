@@ -9,15 +9,13 @@ import {
 
 function appWith(ollama: OllamaClient) {
   return createApp({
-    apiToken: 'secret',
     ollama,
     reviewModel: 'review-model',
     translateModel: 'translategemma:12b',
   })
 }
 
-const auth = {
-  Authorization: 'Bearer secret',
+const jsonHeaders = {
   'Content-Type': 'application/json',
 }
 
@@ -30,7 +28,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
 
@@ -48,7 +46,7 @@ describe('POST /translate', () => {
     })
     await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
 
@@ -64,7 +62,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
     expect(await res.json()).toEqual({ text: 'Hello' })
@@ -78,7 +76,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'x', from: 'fr', to: 'en' }),
     })
     expect(res.status).toBe(400)
@@ -92,7 +90,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
     expect(res.status).toBe(504)
@@ -108,7 +106,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
     expect(res.status).toBe(503)
@@ -124,7 +122,7 @@ describe('POST /translate', () => {
     })
     const res = await app.request('/translate', {
       method: 'POST',
-      headers: auth,
+      headers: jsonHeaders,
       body: JSON.stringify({ text: 'こんにちは', from: 'ja', to: 'en' }),
     })
     expect(res.status).toBe(502)

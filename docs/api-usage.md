@@ -4,12 +4,31 @@
 クライアントは配布物を持たない。
 `~/.claude/skills/` の skill と手打ちのシェルが、ここに記す固定のレシピをそのまま実行する。
 
-認証は `Authorization: Bearer <token>` の共有シークレット 1 本である。
-接続先とトークンは環境変数で渡す。
+認証は SSH の公開鍵認証に委ねる。
+`ai-api` は Windows の loopback にだけ publish しており、LAN からは到達できない。
+クライアントは SSH port forwarding でトンネルを張り、`localhost` 宛てに叩く。
+届いたリクエストは、すでに鍵認証を通ったものだけである。
+
+トンネルを張る前にディストロを起こす。
+idle が続くと WSL の VM ごと停止するため、起こさずに繋ぐと接続を拒否される。
 
 ```bash
-EXOCORTEX_ENDPOINT=http://<windows-ip>:11435
-EXOCORTEX_TOKEN=<shared-secret>
+ssh exocortex "wsl -d exocortex -- /bin/true"
+ssh -f -N -o ExitOnForwardFailure=yes -L 11435:127.0.0.1:11435 exocortex
+```
+
+転送先を `localhost` ではなく `127.0.0.1` と書くのは、Windows 側で `localhost` が `::1` に解決されると届かないためである。
+
+接続先は環境変数で渡す。
+
+```bash
+EXOCORTEX_ENDPOINT=http://localhost:11435
+```
+
+用が済んだらトンネルを閉じる。
+
+```bash
+pkill -f "11435:127.0.0.1:11435"
 ```
 
 ## POST /review
@@ -30,7 +49,7 @@ root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 tar --no-mac-metadata -czf "$tmp/snapshot.tgz" -C "$root" \
   --null -T <(git -C "$root" ls-files -z --cached --others --exclude-standard) .git
-curl -sf -H "Authorization: Bearer $EXOCORTEX_TOKEN" \
+curl -sf \
   -F 'params={"language":"typescript","base":"main"}' \
   -F "snapshot=@$tmp/snapshot.tgz;type=application/gzip" \
   "$EXOCORTEX_ENDPOINT/review"
@@ -72,8 +91,7 @@ rm -rf "$tmp"
 JSON を直接 POST する。
 
 ```bash
-curl -sf -H "Authorization: Bearer $EXOCORTEX_TOKEN" \
-  -H 'Content-Type: application/json' \
+curl -sf -H 'Content-Type: application/json' \
   -d '{"text":"こんにちは","from":"ja","to":"en"}' \
   "$EXOCORTEX_ENDPOINT/translate"
 # → {"text":"Hello"}
@@ -88,7 +106,6 @@ curl -sf -H "Authorization: Bearer $EXOCORTEX_TOKEN" \
 | 状況 | HTTP | error |
 |---|---|---|
 | リクエスト不正（params の欠落、snapshot の欠落、不正な base、展開失敗） | 400 | `invalid_request` / `invalid_snapshot` / `no_changes` |
-| token 不一致 | 401 | `unauthorized` |
 | Ollama がエラーを返した | 502 | `ollama_error` / `invalid_model_output` |
 | Ollama 到達不可 | 503 | `ollama_unreachable` |
 | 推論タイムアウト | 504 | `inference_timeout` |
