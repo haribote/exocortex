@@ -9,6 +9,7 @@ import { scoreOutcome } from './score.ts'
 import {
   applyConfig,
   type EvalConfig,
+  ensureModelsAvailable,
   loadConfigs,
   remoteTarget,
   renderEnvironmentEntry,
@@ -18,15 +19,20 @@ import {
 } from './switch.ts'
 
 export const DEFAULT_HEALTH_TIMEOUT_MS = 180_000
+export const BASELINE_ID = 'default'
+export const CURRENT_LABEL = 'current'
 
 export interface RunOptions {
   runId: string
   configs: string[] | null
+  candidates: string[] | null
+  configsFile: string | null
   caseIds: string[] | null
   repeats: number
   endpoint: string
   timeoutMs: number
   switchEnabled: boolean
+  pull: boolean
   healthTimeoutMs: number
 }
 
@@ -52,11 +58,14 @@ export function parseOptions(
     options: {
       run: { type: 'string', default: 'default' },
       configs: { type: 'string' },
+      candidates: { type: 'string' },
+      'configs-file': { type: 'string' },
       cases: { type: 'string' },
       repeats: { type: 'string', default: '1' },
       endpoint: { type: 'string', default: DEFAULT_ENDPOINT },
       timeout: { type: 'string', default: String(DEFAULT_TIMEOUT_MS) },
       switch: { type: 'boolean', default: false },
+      pull: { type: 'boolean', default: false },
       'health-timeout': {
         type: 'string',
         default: String(DEFAULT_HEALTH_TIMEOUT_MS),
@@ -69,16 +78,68 @@ export function parseOptions(
     throw new Error(`--repeats must be a positive integer: ${values.repeats}`)
   }
 
+  const switchEnabled = values.switch === true || env.EXOCORTEX_SWITCH === '1'
+  if (!switchEnabled) {
+    const only = (name: string): string =>
+      `--${name} needs --switch: only then does the harness set the model on the server`
+    if (values.candidates !== undefined) throw new Error(only('candidates'))
+    if (values['configs-file'] !== undefined)
+      throw new Error(only('configs-file'))
+    if (values.pull === true) throw new Error(only('pull'))
+  }
+
   return {
     runId: values.run as string,
     configs: list(values.configs),
+    candidates: list(values.candidates),
+    configsFile: values['configs-file'] ?? null,
     caseIds: list(values.cases),
     repeats,
     endpoint: values.endpoint as string,
     timeoutMs: Number(values.timeout),
-    switchEnabled: values.switch === true || env.EXOCORTEX_SWITCH === '1',
+    switchEnabled,
+    pull: values.pull === true,
     healthTimeoutMs: Number(values['health-timeout']),
   }
+}
+
+// The baseline comes first so every candidate is measured against it in the same
+// order of cases, which is what makes the pair comparison in summary.md hold.
+export function composeConfigs(
+  fromRepo: readonly EvalConfig[],
+  fromFile: readonly EvalConfig[],
+  candidates: readonly string[],
+): EvalConfig[] {
+  const byId = new Map<string, EvalConfig>()
+  const add = (config: EvalConfig): void => {
+    if (!byId.has(config.id)) byId.set(config.id, config)
+  }
+
+  const baseline =
+    fromFile.find((config) => config.id === BASELINE_ID) ??
+    fromRepo.find((config) => config.id === BASELINE_ID)
+  if (baseline !== undefined) add(baseline)
+
+  for (const config of fromRepo) add(config)
+  for (const config of fromFile) add(config)
+  for (const model of candidates)
+    add({ id: model, env: { REVIEW_MODEL: model } })
+
+  return [...byId.values()]
+}
+
+export function definedConfigs(options: RunOptions): EvalConfig[] {
+  if (!options.switchEnabled) return []
+
+  if (options.configsFile !== null && !existsSync(options.configsFile)) {
+    throw new Error(`no such configs file: ${options.configsFile}`)
+  }
+
+  return composeConfigs(
+    loadConfigs(),
+    options.configsFile === null ? [] : loadConfigs(options.configsFile),
+    options.candidates ?? [],
+  )
 }
 
 // Without --switch the harness never touches the server: configs stay plain
@@ -89,7 +150,7 @@ export function resolveConfigs(
   defined: readonly EvalConfig[],
 ): ResolvedConfig[] {
   if (!options.switchEnabled) {
-    return (options.configs ?? ['default']).map((id) => ({ id, env: null }))
+    return (options.configs ?? [CURRENT_LABEL]).map((id) => ({ id, env: null }))
   }
 
   if (options.configs === null) {
@@ -100,11 +161,21 @@ export function resolveConfigs(
     const found = defined.find((config) => config.id === id)
     if (!found) {
       throw new Error(
-        `no such config in configs.json: ${id} (have ${defined.map((config) => config.id).join(', ')})`,
+        `no such config: ${id} (have ${defined.map((config) => config.id).join(', ')})`,
       )
     }
     return { id: found.id, env: found.env }
   })
+}
+
+export function requiredModels(configs: readonly ResolvedConfig[]): string[] {
+  const models: string[] = []
+  for (const config of configs) {
+    const model = config.env?.REVIEW_MODEL
+    if (model === undefined || models.includes(model)) continue
+    models.push(model)
+  }
+  return models
 }
 
 function selectCases(options: RunOptions): EvalCase[] {
@@ -245,10 +316,22 @@ async function main(): Promise<void> {
   const warmUpCase = cases[0]
   if (warmUpCase === undefined) throw new Error('no cases selected')
 
-  const configs = resolveConfigs(
-    options,
-    options.switchEnabled ? loadConfigs() : [],
-  )
+  const configs = resolveConfigs(options, definedConfigs(options))
+
+  if (options.switchEnabled) {
+    try {
+      ensureModelsAvailable(requiredModels(configs), remoteTarget(), {
+        runner: sshRunner,
+        pull: options.pull,
+        log: (message) => console.log(message),
+      })
+    } catch (cause) {
+      console.error(cause instanceof Error ? cause.message : String(cause))
+      process.exitCode = 1
+      return
+    }
+  }
+
   const dir = join(RUNS_DIR, options.runId)
   mkdirSync(dir, { recursive: true })
 

@@ -12,3 +12,5 @@ build/
 evals/runs/*
 !evals/runs/.gitkeep
 !evals/runs/main-01/
+
+evals/configs.local.json

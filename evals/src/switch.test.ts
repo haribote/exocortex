@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyConfig,
+  buildOllamaListScript,
   buildOllamaPsScript,
+  buildOllamaPullScript,
   buildSwitchScript,
   DEFAULT_TARGET,
   type EvalConfig,
+  ensureModelsAvailable,
   fullyOnGpu,
   loadConfigs,
+  missingModels,
+  parseOllamaList,
+  type RemoteRunner,
   remoteTarget,
   renderEnvironmentEntry,
   type SwitchDeps,
@@ -16,7 +22,7 @@ import {
 } from './switch.ts'
 
 const thinky: EvalConfig = {
-  id: 'C1',
+  id: 'thinky',
   env: { REVIEW_MODEL: 'gemma4:12b', REVIEW_THINK: 'true' },
 }
 
@@ -42,7 +48,7 @@ function fakeDeps(overrides: Partial<SwitchDeps> = {}): SwitchDeps {
 describe('shellQuote', () => {
   it('wraps a value so the shell sees it literally', () => {
     expect(shellQuote('<|think|>')).toBe("'<|think|>'")
-    expect(shellQuote('qwen3:14b')).toBe("'qwen3:14b'")
+    expect(shellQuote('gemma4:12b')).toBe("'gemma4:12b'")
   })
 
   it('survives an embedded single quote', () => {
@@ -90,7 +96,7 @@ describe('buildSwitchScript', () => {
 
   it('reads the compose directory and service from the target', () => {
     const script = buildSwitchScript(
-      { id: 'C2', env: { REVIEW_MODEL: 'gemma4:12b' } },
+      { id: 'other', env: { REVIEW_MODEL: 'gemma4:12b' } },
       { ...DEFAULT_TARGET, composeDir: '/srv/app', service: 'api' },
     )
 
@@ -157,15 +163,12 @@ describe('remoteTarget', () => {
 describe('loadConfigs', () => {
   const configs = loadConfigs()
 
-  it('reads the six configs', () => {
-    expect(configs.map((config) => config.id)).toEqual([
-      'C0',
-      'C0p',
-      'C1',
-      'C2',
-      'C3',
-      'C4',
-    ])
+  it('ships the baseline alone, so candidates are named by the caller', () => {
+    expect(configs.map((config) => config.id)).toEqual(['default'])
+  })
+
+  it('points the baseline at the model the api defaults to', () => {
+    expect(configs[0]?.env).toEqual({ REVIEW_MODEL: 'gemma4:12b' })
   })
 
   it('gives every config a REVIEW_MODEL to check against', () => {
@@ -174,20 +177,177 @@ describe('loadConfigs', () => {
     }
   })
 
-  it('contrasts thinking through REVIEW_THINK', () => {
-    const byId = new Map(configs.map((config) => [config.id, config.env]))
-
-    expect(byId.get('C1')).toEqual({ REVIEW_MODEL: 'gemma4:12b' })
-    expect(byId.get('C2')).toEqual({
-      REVIEW_MODEL: 'gemma4:12b',
-      REVIEW_THINK: 'false',
-    })
-  })
-
   it('builds a usable script for every config', () => {
     for (const config of configs) {
       expect(() => buildSwitchScript(config, DEFAULT_TARGET)).not.toThrow()
     }
+  })
+})
+
+describe('parseOllamaList', () => {
+  const listing = [
+    'NAME              ID              SIZE      MODIFIED',
+    'gemma4:12b        1a2b3c4d5e6f    8.1 GB    2 days ago',
+    'qwen3.5:27b       0f9e8d7c6b5a    17 GB     3 weeks ago',
+    '',
+  ].join('\n')
+
+  it('keeps the names and drops the header', () => {
+    expect(parseOllamaList(listing)).toEqual(['gemma4:12b', 'qwen3.5:27b'])
+  })
+
+  it('reads an empty library as an empty list', () => {
+    expect(parseOllamaList('NAME ID SIZE MODIFIED\n')).toEqual([])
+    expect(parseOllamaList('')).toEqual([])
+  })
+})
+
+describe('missingModels', () => {
+  it('is empty when the server has everything asked for', () => {
+    expect(
+      missingModels(['gemma4:12b'], ['gemma4:12b', 'qwen3.5:27b']),
+    ).toEqual([])
+  })
+
+  it('names every model the server does not have, once', () => {
+    expect(
+      missingModels(
+        ['gemma4:12b', 'gemma4:26b', 'qwen3.5:27b', 'gemma4:26b'],
+        ['gemma4:12b'],
+      ),
+    ).toEqual(['gemma4:26b', 'qwen3.5:27b'])
+  })
+
+  it('reads a bare name as the latest tag, the way ollama does', () => {
+    expect(missingModels(['gemma4'], ['gemma4:latest'])).toEqual([])
+    expect(missingModels(['gemma4:latest'], ['gemma4'])).toEqual([])
+    expect(missingModels(['gemma4'], ['gemma4:12b'])).toEqual(['gemma4'])
+  })
+})
+
+describe('ensureModelsAvailable', () => {
+  const library = 'NAME ID SIZE MODIFIED\ngemma4:12b abc 8.1 GB 2 days ago\n'
+
+  function recordingRunner(output: string | ((script: string) => string)) {
+    const scripts: string[] = []
+    const runner: RemoteRunner = (_args, script) => {
+      scripts.push(script)
+      return typeof output === 'string' ? output : output(script)
+    }
+    return { scripts, runner }
+  }
+
+  it('asks the server nothing when no config pins a model', () => {
+    const { scripts, runner } = recordingRunner(library)
+
+    ensureModelsAvailable([], DEFAULT_TARGET, { runner, pull: false })
+
+    expect(scripts).toEqual([])
+  })
+
+  it('returns quietly once every model is there', () => {
+    const { scripts, runner } = recordingRunner(library)
+
+    ensureModelsAvailable(['gemma4:12b'], DEFAULT_TARGET, {
+      runner,
+      pull: false,
+    })
+
+    expect(scripts).toHaveLength(1)
+    expect(scripts[0]).toContain('ollama list')
+  })
+
+  it('names every missing model and pulls none of them without --pull', () => {
+    const { scripts, runner } = recordingRunner(library)
+
+    expect(() =>
+      ensureModelsAvailable(
+        ['gemma4:12b', 'gemma4:26b', 'qwen3.5:27b'],
+        DEFAULT_TARGET,
+        { runner, pull: false },
+      ),
+    ).toThrow(/gemma4:26b, qwen3\.5:27b/)
+
+    expect(scripts.some((script) => script.includes('ollama pull'))).toBe(false)
+    expect(scripts.some((script) => script.includes('docker compose up'))).toBe(
+      false,
+    )
+  })
+
+  it('tells the caller that --pull is the way to fetch them', () => {
+    const { runner } = recordingRunner(library)
+
+    expect(() =>
+      ensureModelsAvailable(['gemma4:26b'], DEFAULT_TARGET, {
+        runner,
+        pull: false,
+      }),
+    ).toThrow(/--pull/)
+  })
+
+  it('fetches the missing models with --pull, then checks again', () => {
+    let pulled = false
+    const { scripts, runner } = recordingRunner((script) => {
+      if (script.includes('ollama pull')) {
+        pulled = true
+        return ''
+      }
+      return pulled ? `${library}gemma4:26b def 17 GB just now\n` : library
+    })
+
+    ensureModelsAvailable(['gemma4:12b', 'gemma4:26b'], DEFAULT_TARGET, {
+      runner,
+      pull: true,
+    })
+
+    expect(scripts.filter((script) => script.includes('ollama pull'))).toEqual([
+      [
+        'set -eu',
+        "cd '/home/haribote/exocortex'",
+        "docker compose exec -T ollama ollama pull 'gemma4:26b' >/dev/null",
+        '',
+      ].join('\n'),
+    ])
+  })
+
+  it('refuses to start when a pull left the model absent anyway', () => {
+    const { runner } = recordingRunner(library)
+
+    expect(() =>
+      ensureModelsAvailable(['gemma4:26b'], DEFAULT_TARGET, {
+        runner,
+        pull: true,
+      }),
+    ).toThrow(/still does not have gemma4:26b/)
+  })
+
+  it('says the listing itself failed rather than blaming the models', () => {
+    const runner: RemoteRunner = () => {
+      throw new Error('ssh: connect failed')
+    }
+
+    expect(() =>
+      ensureModelsAvailable(['gemma4:12b'], DEFAULT_TARGET, {
+        runner,
+        pull: false,
+      }),
+    ).toThrow(/could not list the models/)
+  })
+})
+
+describe('buildOllamaListScript', () => {
+  it('reads the library from the ollama service', () => {
+    expect(buildOllamaListScript(DEFAULT_TARGET)).toContain(
+      'docker compose exec -T ollama ollama list',
+    )
+  })
+})
+
+describe('buildOllamaPullScript', () => {
+  it('quotes the model name, so no name reaches the shell unguarded', () => {
+    expect(buildOllamaPullScript(DEFAULT_TARGET, "a'; rm -rf / #")).toContain(
+      "ollama pull 'a'\\''; rm -rf / #'",
+    )
   })
 })
 
@@ -218,12 +378,12 @@ describe('applyConfig', () => {
       thinky,
       DEFAULT_TARGET,
       fakeDeps({
-        warmUp: async () => ({ model: 'qwen3:14b', wallMs: 100, status: 200 }),
+        warmUp: async () => ({ model: 'gemma4:26b', wallMs: 100, status: 200 }),
       }),
     )
 
     expect(entry.status).toBe('model-mismatch')
-    expect(entry.reportedModel).toBe('qwen3:14b')
+    expect(entry.reportedModel).toBe('gemma4:26b')
     expect(entry.expectedModel).toBe('gemma4:12b')
   })
 
@@ -277,11 +437,11 @@ describe('applyConfig', () => {
 
 describe('fullyOnGpu', () => {
   it('is true when every resident model sits entirely on the GPU', () => {
-    expect(fullyOnGpu('NAME PROCESSOR\nqwen3:14b 100% GPU\n')).toBe(true)
+    expect(fullyOnGpu('NAME PROCESSOR\ngemma4:12b 100% GPU\n')).toBe(true)
   })
 
   it('is false when anything spilled to the CPU', () => {
-    expect(fullyOnGpu('NAME PROCESSOR\nqwen3:14b 38%/62% CPU/GPU\n')).toBe(
+    expect(fullyOnGpu('NAME PROCESSOR\ngemma4:12b 38%/62% CPU/GPU\n')).toBe(
       false,
     )
   })
@@ -295,7 +455,7 @@ describe('fullyOnGpu', () => {
 describe('renderEnvironmentEntry', () => {
   it('records the config and flags a run that is not fully on the GPU', () => {
     const markdown = renderEnvironmentEntry({
-      configId: 'C1',
+      configId: 'thinky',
       switchedAt: '2026-07-25T02:00:00.000Z',
       env: thinky.env,
       expectedModel: 'gemma4:12b',
@@ -306,20 +466,20 @@ describe('renderEnvironmentEntry', () => {
       note: null,
     })
 
-    expect(markdown).toContain('## C1')
+    expect(markdown).toContain('## thinky')
     expect(markdown).toContain('REVIEW_MODEL=gemma4:12b REVIEW_THINK=true')
     expect(markdown).toContain('レイテンシ比較から除外')
   })
 
   it('says nothing about exclusion when the model is fully on the GPU', () => {
     const markdown = renderEnvironmentEntry({
-      configId: 'C0',
+      configId: 'default',
       switchedAt: '2026-07-25T02:00:00.000Z',
-      env: { REVIEW_MODEL: 'qwen3:14b' },
-      expectedModel: 'qwen3:14b',
-      reportedModel: 'qwen3:14b',
+      env: { REVIEW_MODEL: 'gemma4:12b' },
+      expectedModel: 'gemma4:12b',
+      reportedModel: 'gemma4:12b',
       warmUpMs: 30_000,
-      ollamaPs: 'NAME PROCESSOR\nqwen3:14b 100% GPU\n',
+      ollamaPs: 'NAME PROCESSOR\ngemma4:12b 100% GPU\n',
       status: 'ok',
       note: null,
     })

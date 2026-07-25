@@ -73,6 +73,30 @@ export function buildOllamaPsScript(target: RemoteTarget): string {
   ].join('\n')
 }
 
+export function buildOllamaListScript(target: RemoteTarget): string {
+  return [
+    'set -eu',
+    `cd ${shellQuote(target.composeDir)}`,
+    'docker compose exec -T ollama ollama list',
+    '',
+  ].join('\n')
+}
+
+// The progress meter is discarded because it is megabytes of carriage returns
+// and the runner buffers everything it is given. Failures still arrive: pull
+// writes them to stderr and exits non-zero.
+export function buildOllamaPullScript(
+  target: RemoteTarget,
+  model: string,
+): string {
+  return [
+    'set -eu',
+    `cd ${shellQuote(target.composeDir)}`,
+    `docker compose exec -T ollama ollama pull ${shellQuote(model)} >/dev/null`,
+    '',
+  ].join('\n')
+}
+
 // The script travels on stdin, never on a command line. ssh hands the command
 // to the Windows default shell, where '<', '|' and '>' are metacharacters, and
 // a config value is free to contain them. Keeping the argv to bare tokens means
@@ -95,6 +119,81 @@ export const sshRunner: RemoteRunner = (args, script) =>
     encoding: 'utf8',
     maxBuffer: 8 * 1024 * 1024,
   })
+
+function normalizeModel(name: string): string {
+  return name.includes(':') ? name : `${name}:latest`
+}
+
+export function parseOllamaList(output: string): string[] {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => line.split(/\s+/)[0] as string)
+    .filter((name) => name !== 'NAME')
+}
+
+export function missingModels(
+  wanted: readonly string[],
+  installed: readonly string[],
+): string[] {
+  const have = new Set(installed.map(normalizeModel))
+  const missing: string[] = []
+  for (const model of wanted) {
+    if (have.has(normalizeModel(model))) continue
+    if (!missing.includes(model)) missing.push(model)
+  }
+  return missing
+}
+
+export interface ModelAvailabilityDeps {
+  runner: RemoteRunner
+  pull: boolean
+  log?: (message: string) => void
+}
+
+// Ollama pulls on demand for `ollama run`, but not for the `/api/chat` calls the
+// api makes. A model the server does not have would only surface as a failed
+// warm-up, one config at a time, hours into an unattended run.
+export function ensureModelsAvailable(
+  wanted: readonly string[],
+  target: RemoteTarget,
+  deps: ModelAvailabilityDeps,
+): void {
+  if (wanted.length === 0) return
+
+  const args = sshArgs(target)
+  const log = deps.log ?? (() => {})
+
+  const list = (): string[] => {
+    try {
+      return parseOllamaList(deps.runner(args, buildOllamaListScript(target)))
+    } catch (cause) {
+      throw new Error(`could not list the models on the server: ${cause}`)
+    }
+  }
+
+  const missing = missingModels(wanted, list())
+  if (missing.length === 0) return
+
+  if (!deps.pull) {
+    throw new Error(
+      `the server does not have ${missing.join(', ')}. fix the names, or re-run with --pull to fetch them.`,
+    )
+  }
+
+  for (const model of missing) {
+    log(`pulling ${model}`)
+    deps.runner(args, buildOllamaPullScript(target, model))
+  }
+
+  const stillMissing = missingModels(wanted, list())
+  if (stillMissing.length > 0) {
+    throw new Error(
+      `the server still does not have ${stillMissing.join(', ')} after pulling.`,
+    )
+  }
+}
 
 export interface HealthOptions {
   endpoint: string
