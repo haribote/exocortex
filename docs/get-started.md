@@ -651,15 +651,17 @@ curl http://localhost:11435/health
 
 **実行**
 
-レビューを 1 回投げてモデルをロードさせる。
+レビュー用のモデルを一度ロードさせてから、割り当てを見る。
 
 ```bash
 # クライアント（SSH 経由、ディストロ内）
-curl -X POST http://localhost:11435/review \
-  -H 'Content-Type: application/json' \
-  -d '{"language":"typescript","diff":"diff --git a/a.ts b/a.ts\n+const x = 1\n"}'
+docker compose exec ollama ollama run gemma4:12b "ok" > /dev/null
 docker compose exec ollama ollama ps
 ```
+
+`ollama ps` はロード中のモデルだけを並べる。
+`OLLAMA_KEEP_ALIVE` を `5m` にしているため、最後のリクエストから 5 分が過ぎると一覧は空になる。
+空だった場合は、ロードからやり直す。
 
 **確認**
 

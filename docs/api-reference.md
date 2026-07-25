@@ -85,6 +85,7 @@ rm -rf "$tmp"
     "droppedContextFiles": 2,
     "promptEvalTokens": 11890,
     "outputTokens": 512,
+    "thinkingChars": 5286,
     "loadDurationMs": 5600
   }
 }
@@ -95,19 +96,15 @@ rm -rf "$tmp"
 その破棄数が `meta.droppedComments` である。
 `meta.droppedContextFiles` は、予算に収めるためにサーバーが落とした context ファイルの数である。
 
-`meta` の末尾 3 つは Ollama が実測値を返したときだけ現れる。
+`meta` の末尾 4 つは Ollama が実測値を返したときだけ現れる。
 `promptEvalTokens` と `outputTokens` はモデルが実際に消費した入力トークン数と出力トークン数である。
 `inputTokens` がサーバー側の見積もりであるのに対し、こちらはモデルの実測値なので、見積もりの精度を確かめるのに使える。
 
-`outputTokens` は thinking の分を含まない。
-`/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである（Ollama 0.32.1 で実測）。
-thinking の量は `meta.thinkingChars` に出る。
+`thinkingChars` は、モデルが応答の前に挟んだ思考テキストの長さである。
+`gemma4:12b` の思考は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを上回る。
+`outputTokens` のほうは思考を数えない。
+`/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである。
 
-thinking は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを大きく上回る。
-gemma4:12b で 56 件を測ったところ、その差は p50 が 5286、p95 が 8295、最大 21411 トークンだった。
-入力の大きさではなく case の難しさで決まるので、入力長からは予測できない。
-サーバーが入力に確保する上限を 20480 トークンに抑えているのはこのためで、残りを thinking と出力の余地として空けてある。
-大きな diff では `droppedContextFiles` が増えるが、context を超えて壊れた出力が返るよりは扱いやすい。
 `loadDurationMs` はモデルのロードに要した時間で、`durationMs` の内数である。
 
 ## POST /translate
