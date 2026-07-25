@@ -1,8 +1,21 @@
-import type { ReviewComment, Severity } from '@exocortex/contract'
+import {
+  MAX_CONTEXT_TOKENS,
+  type ReviewComment,
+  type Severity,
+} from '@exocortex/contract'
 import type { ResolvedFinding } from './cases.ts'
 import type { ReviewOutcome } from './client.ts'
 
 export const NEAR_LINES = 2
+
+const THINKING_KEY = /think/i
+const TOKEN_KEY = /token|count|eval/i
+const LENGTH_KEY = /len|char/i
+const PROMPT_TOKEN_KEYS = [
+  'promptEvalTokens',
+  'prompt_eval_count',
+  'promptTokens',
+]
 
 const SEVERITY_RANK: Record<Severity, number> = {
   info: 0,
@@ -61,8 +74,67 @@ export interface Score {
   inputTokens: number | null
   serverDurationMs: number | null
   wallMs: number
+  thinkingTokens: number | null
+  thinkingChars: number | null
+  thinkingMeta: Record<string, number> | null
+  promptEvalTokens: number | null
+  contextRemaining: number | null
   perComment: CommentScore[]
   perExpected: ExpectedScore[]
+}
+
+// The contract does not declare a thinking field yet, and its name is not
+// settled. Read whatever the server actually sent rather than the parsed value,
+// and treat a missing field as unknown instead of an error.
+export function rawMeta(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const meta = (raw as { meta?: unknown }).meta
+  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
+    return null
+  }
+  return meta as Record<string, unknown>
+}
+
+function numericEntries(
+  meta: Record<string, unknown> | null,
+  matches: (key: string) => boolean,
+): [string, number][] {
+  if (meta === null) return []
+  return Object.entries(meta).filter(
+    (entry): entry is [string, number] =>
+      matches(entry[0]) &&
+      typeof entry[1] === 'number' &&
+      !Number.isNaN(entry[1]),
+  )
+}
+
+export interface ThinkingMetrics {
+  thinkingTokens: number | null
+  thinkingChars: number | null
+  thinkingMeta: Record<string, number> | null
+}
+
+export function readThinking(raw: unknown): ThinkingMetrics {
+  const found = numericEntries(rawMeta(raw), (key) => THINKING_KEY.test(key))
+  if (found.length === 0) {
+    return { thinkingTokens: null, thinkingChars: null, thinkingMeta: null }
+  }
+
+  return {
+    thinkingTokens: found.find(([key]) => TOKEN_KEY.test(key))?.[1] ?? null,
+    thinkingChars: found.find(([key]) => LENGTH_KEY.test(key))?.[1] ?? null,
+    thinkingMeta: Object.fromEntries(found),
+  }
+}
+
+export function readPromptEvalTokens(raw: unknown): number | null {
+  const meta = rawMeta(raw)
+  if (meta === null) return null
+  for (const key of PROMPT_TOKEN_KEYS) {
+    const value = meta[key]
+    if (typeof value === 'number' && !Number.isNaN(value)) return value
+  }
+  return null
 }
 
 function citedLine(
@@ -172,6 +244,8 @@ export function scoreOutcome(
   ).length
   const dropped = meta?.droppedComments ?? null
   const returned = dropped === null ? 0 : dropped + comments.length
+  const thinking = readThinking(outcome.raw)
+  const promptEvalTokens = readPromptEvalTokens(outcome.raw)
 
   return {
     status: outcome.status,
@@ -196,6 +270,10 @@ export function scoreOutcome(
     inputTokens: meta?.inputTokens ?? null,
     serverDurationMs: meta?.durationMs ?? null,
     wallMs: outcome.wallMs,
+    ...thinking,
+    promptEvalTokens,
+    contextRemaining:
+      promptEvalTokens === null ? null : MAX_CONTEXT_TOKENS - promptEvalTokens,
     perComment,
     perExpected,
   }

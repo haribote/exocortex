@@ -63,7 +63,17 @@ function outcome(
     body: JSON.stringify(response),
     wallMs: 9500,
     response,
+    raw: response,
   }
+}
+
+function outcomeWithMeta(extra: Record<string, unknown>): ReviewOutcome {
+  const base = outcome([comment()])
+  const raw = {
+    ...(base.raw as Record<string, unknown>),
+    meta: { ...(base.response as ReviewResponse).meta, ...extra },
+  }
+  return { ...base, body: JSON.stringify(raw), raw }
 }
 
 describe('normalizeQuote', () => {
@@ -247,6 +257,91 @@ describe('scoreOutcome', () => {
     expect(score.droppedComments).toBeNull()
     expect(score.droppedCommentRate).toBeNull()
     expect(score.quoteMatchRate).toBeNull()
+  })
+
+  it('leaves thinking and prompt tokens null while the contract lacks them', () => {
+    const score = scoreOutcome(target, outcome([comment()]))
+
+    expect(score.thinkingTokens).toBeNull()
+    expect(score.thinkingChars).toBeNull()
+    expect(score.thinkingMeta).toBeNull()
+    expect(score.promptEvalTokens).toBeNull()
+    expect(score.contextRemaining).toBeNull()
+  })
+
+  it('picks up a thinking token count whatever the field ends up being called', () => {
+    for (const name of [
+      'thinkingTokens',
+      'thinking_eval_count',
+      'thinkTokenCount',
+    ]) {
+      const score = scoreOutcome(target, outcomeWithMeta({ [name]: 1242 }))
+
+      expect(score.thinkingTokens, name).toBe(1242)
+      expect(score.thinkingMeta, name).toEqual({ [name]: 1242 })
+    }
+  })
+
+  it('separates a thinking length from a thinking token count', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({ thinkingLength: 1242, thinkingTokens: 401 }),
+    )
+
+    expect(score.thinkingChars).toBe(1242)
+    expect(score.thinkingTokens).toBe(401)
+  })
+
+  it('keeps an unrecognised thinking field rather than dropping it', () => {
+    const score = scoreOutcome(target, outcomeWithMeta({ thinking: 1242 }))
+
+    expect(score.thinkingMeta).toEqual({ thinking: 1242 })
+    expect(score.thinkingTokens).toBeNull()
+  })
+
+  it('ignores a thinking field that is not a number', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({ thinkingTokens: 'lots' }),
+    )
+
+    expect(score.thinkingMeta).toBeNull()
+  })
+
+  it('records prompt tokens and what is left of the context window', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({ promptEvalTokens: 30_000 }),
+    )
+
+    expect(score.promptEvalTokens).toBe(30_000)
+    expect(score.contextRemaining).toBe(2768)
+  })
+
+  it('accepts the raw ollama spelling of the prompt token count', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({ prompt_eval_count: 15_400 }),
+    )
+
+    expect(score.promptEvalTokens).toBe(15_400)
+  })
+
+  it('reports a negative remainder when the prompt overran the window', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({ promptEvalTokens: 33_000 }),
+    )
+
+    expect(score.contextRemaining).toBe(-232)
+  })
+
+  it('survives a body that is not shaped like a review response at all', () => {
+    for (const raw of [null, 'text', 42, [], { meta: 'nope' }, { meta: [] }]) {
+      expect(() =>
+        scoreOutcome(target, { status: 502, body: '', wallMs: 1, raw }),
+      ).not.toThrow()
+    }
   })
 
   it('is a pure function of its inputs', () => {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import type { ReviewComment } from '@exocortex/contract'
+import { MAX_CONTEXT_TOKENS, type ReviewComment } from '@exocortex/contract'
 import type { Score } from './score.ts'
 
 export const RUNS_DIR = join(import.meta.dirname, '..', 'runs')
@@ -136,7 +136,26 @@ function totals(records: readonly RunRecord[]) {
       scores.map((score) => score.droppedContextFiles ?? 0),
     ),
     wallMs: scores.map((score) => score.wallMs),
+    promptEvalTokens: defined(scores.map((score) => score.promptEvalTokens)),
+    contextRemaining: defined(scores.map((score) => score.contextRemaining)),
+    thinkingTokens: defined(scores.map((score) => score.thinkingTokens)),
   }
+}
+
+function defined(values: readonly (number | null)[]): number[] {
+  return values.filter((value): value is number => value !== null)
+}
+
+function maxOf(values: readonly number[]): string {
+  return values.length === 0 ? '-' : String(Math.max(...values))
+}
+
+function minOf(values: readonly number[]): string {
+  return values.length === 0 ? '-' : String(Math.min(...values))
+}
+
+function meanOf(values: readonly number[]): string {
+  return values.length === 0 ? '-' : (sum(values) / values.length).toFixed(0)
 }
 
 function overviewTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
@@ -157,6 +176,9 @@ function overviewTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
       String(t.droppedComments),
       String(t.droppedContextFiles),
       seconds(t.wallMs),
+      maxOf(t.promptEvalTokens),
+      minOf(t.contextRemaining),
+      meanOf(t.thinkingTokens),
     ]
   })
 
@@ -175,6 +197,9 @@ function overviewTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
       'dropped comments',
       'dropped context',
       '平均 wall (s)',
+      'prompt tokens (最大)',
+      'context 残余 (最小)',
+      'thinking tokens (平均)',
     ],
     rows,
   )
@@ -239,6 +264,24 @@ export function renderSummary(records: readonly RunRecord[]): string {
     '## case 別 平均 wall (s)',
     '',
     caseTable(records, configs, (forCase) => seconds(totals(forCase).wallMs)),
+    '',
+    `## case 別 prompt tokens (最大) / context 残余 (最小、上限 ${MAX_CONTEXT_TOKENS})`,
+    '',
+    caseTable(records, configs, (forCase) => {
+      const t = totals(forCase)
+      if (t.promptEvalTokens.length === 0) return '-'
+      return `${maxOf(t.promptEvalTokens)} / ${minOf(t.contextRemaining)}`
+    }),
+    '',
+    '残余が負の config は、prompt が context を実際に超えています。',
+    'tokenizer の密度はモデルごとに違うため、同じ入力でも config によって超えるかどうかが変わります。',
+    '',
+    '## case 別 dropped context files',
+    '',
+    caseTable(records, configs, (forCase) => {
+      const t = totals(forCase)
+      return t.runs === 0 ? '-' : String(t.droppedContextFiles)
+    }),
     '',
     '判定は自動指標だけでは決まりません。',
     'true positive と false positive の別は `adjudication.md` を盲検で採点してから判断してください。',

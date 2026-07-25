@@ -87,10 +87,9 @@ describe('resolveConfigs with --switch', () => {
       'C3',
       'C4',
     ])
-    expect(configs[2]?.env).toEqual({
+    expect(configs[3]?.env).toEqual({
       REVIEW_MODEL: 'gemma4:12b',
-      REVIEW_SYSTEM_MODE: 'prefix',
-      REVIEW_THINK_PREFIX: '<|think|>',
+      REVIEW_THINK: 'false',
     })
   })
 

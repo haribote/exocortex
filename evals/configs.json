@@ -4,15 +4,11 @@
     "id": "C0p",
     "env": { "REVIEW_MODEL": "qwen3:14b", "REVIEW_SYSTEM_MODE": "prefix" }
   },
+  { "id": "C1", "env": { "REVIEW_MODEL": "gemma4:12b" } },
   {
-    "id": "C1",
-    "env": {
-      "REVIEW_MODEL": "gemma4:12b",
-      "REVIEW_SYSTEM_MODE": "prefix",
-      "REVIEW_THINK_PREFIX": "<|think|>"
-    }
+    "id": "C2",
+    "env": { "REVIEW_MODEL": "gemma4:12b", "REVIEW_THINK": "false" }
   },
-  { "id": "C2", "env": { "REVIEW_MODEL": "gemma4:12b" } },
   { "id": "C3", "env": { "REVIEW_MODEL": "qwen3.5:9b" } },
   {
     "id": "C4",

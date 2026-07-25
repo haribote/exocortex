@@ -23,6 +23,9 @@ export interface ReviewOutcome {
   body: string
   wallMs: number
   response?: ReviewResponse
+  // reviewResponseSchema strips meta fields it does not declare, so anything the
+  // server grows before the contract catches up is only visible here.
+  raw?: unknown
   parseError?: string
 }
 
@@ -56,6 +59,7 @@ export async function callReview(call: ReviewCall): Promise<ReviewOutcome> {
     return outcome
   }
 
+  outcome.raw = raw
   const parsed = reviewResponseSchema.safeParse(raw)
   if (parsed.success) {
     outcome.response = parsed.data

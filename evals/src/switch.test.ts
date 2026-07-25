@@ -15,6 +15,10 @@ import {
   waitForHealth,
 } from './switch.ts'
 
+// No config in configs.json sets REVIEW_THINK_PREFIX any more: the value turned
+// out to have no effect, and thinking is controlled by REVIEW_THINK instead.
+// This config stays as a regression test for the escaping, because "<|think|>"
+// is made entirely of characters that cmd.exe and bash would otherwise act on.
 const thinky: EvalConfig = {
   id: 'C1',
   env: {
@@ -170,6 +174,19 @@ describe('loadConfigs', () => {
   it('gives every config a REVIEW_MODEL to check against', () => {
     for (const config of configs) {
       expect(config.env.REVIEW_MODEL, config.id).toBeTypeOf('string')
+    }
+  })
+
+  it('contrasts thinking through REVIEW_THINK, not a system prompt prefix', () => {
+    const byId = new Map(configs.map((config) => [config.id, config.env]))
+
+    expect(byId.get('C1')).toEqual({ REVIEW_MODEL: 'gemma4:12b' })
+    expect(byId.get('C2')).toEqual({
+      REVIEW_MODEL: 'gemma4:12b',
+      REVIEW_THINK: 'false',
+    })
+    for (const config of configs) {
+      expect(config.env.REVIEW_THINK_PREFIX, config.id).toBeUndefined()
     }
   })
 

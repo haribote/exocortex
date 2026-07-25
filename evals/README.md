@@ -106,9 +106,27 @@ node src/run.ts --run 2026-07 --switch --repeats 3
 ```json
 [
   { "id": "C0", "env": { "REVIEW_MODEL": "qwen3:14b" } },
-  { "id": "C2", "env": { "REVIEW_MODEL": "gemma4:12b" } }
+  {
+    "id": "C2",
+    "env": { "REVIEW_MODEL": "gemma4:12b", "REVIEW_THINK": "false" }
+  }
 ]
 ```
+
+現在の 6 config は次のとおりです。
+
+| id | REVIEW_MODEL | 設定 |
+| --- | --- | --- |
+| C0 | `qwen3:14b` | なし。thinking 有効で、現行の本番構成そのものです |
+| C0p | `qwen3:14b` | `REVIEW_SYSTEM_MODE=prefix` |
+| C1 | `gemma4:12b` | なし。thinking 有効です |
+| C2 | `gemma4:12b` | `REVIEW_THINK=false` |
+| C3 | `qwen3.5:9b` | なし |
+| C4 | `gpt-oss:20b` | `REVIEW_THINK=high` |
+
+thinking の有無の対照は `REVIEW_THINK` で作ります。
+`gemma4:12b` は `think` 未指定と `think: true` が完全に同一の結果になり、thinking は既定で有効だと実測で分かったためです。
+`think: false` は 3 モデルすべてで thinking を確実に止めます。
 
 `env` に書いた変数だけがサーバーに渡ります。
 ある config で指定しなかった変数は、compose ファイルの既定値に戻ります。
@@ -184,6 +202,23 @@ node src/report.ts --run 2026-07
 `未対応/run` は、どの `expected` にも近接しなかったコメントの 1 回あたりの数です。
 clean case ではこれが false positive の候補になります。
 
+### トークン予算の計器
+
+`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（32768）に対して入力がどれだけ詰まっていたかを示します。
+残余が負なら、その run では prompt が context を実際に超えています。
+
+`thinking tokens` は、レスポンスの `meta` に thinking の長さが載っていれば記録します。
+載っていなければ `-` になります。
+
+**`outputTokens` だけでは thinking の予算超過を測れません。**
+`/review` は常に `format` を渡しますが、`format` を渡すと `eval_count` が content の分しか数えないことが実測で分かっています。
+gemma4 では、think=true で `format` 無しなら eval=580 だったものが、`format` 有りでは eval=113 に落ちる一方、thinking の長さは 1242 で変わりませんでした。
+thinking はトークンを消費しているのに `eval_count` には現れないため、別の計器が要ります。
+
+thinking を載せるフィールドの名前はまだ確定していません。
+harness は `meta` の中から名前に `think` を含む数値フィールドを拾い、無ければ `null` として扱います。
+フィールドが増えても減っても壊れません。
+
 ## 盲検の採点
 
 自動指標は、コメントが正しいかどうかまでは判定しません。
@@ -222,3 +257,28 @@ anchor は head 適用後のファイル中に一意に現れる 1 行です。
 | `clean-refactor-01` | clean | base | バグなし。false positive の測定用 |
 
 前の 3 件は、commit `a9d124c` で `qwen3:14b` への切り替えを判断したときに使った 3 問を復元したものです。
+
+## サイズ case で測るもの
+
+`size` category の case だけは、目的が他と違います。
+期待どおり検出できたかではなく、**入力が実際に何トークンだったか、切り捨てが起きたか**を記録することが目的です。
+
+tokenizer の密度がモデルごとに違うためです。
+同一の 291 文字に対する実測値は次のとおりでした。
+
+| モデル | chars/token |
+| --- | --- |
+| `qwen3:14b` | 3.13 |
+| `qwen3.5:9b` | 2.94 |
+| `gemma4:12b` | 2.58 |
+
+`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` は 3 です。
+サーバーはこの値で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰めます。
+qwen3 では安全側に倒れますが、gemma4 では 16% の過小評価になります。
+
+つまり `MAX_INPUT_TOKENS` 相当まで詰めた入力は、gemma4 では実トークンで context を超えます。
+バグあり 12 件と clean 6 件は入力が小さいのでここを踏みません。
+サイズ 2 件だけが踏みます。
+
+そのため、サイズ case では `hit@±2` ではなく `prompt tokens` と `context 残余`、そして `dropped context files` を読んでください。
+`summary.md` の case 別の表にどちらも出ます。
