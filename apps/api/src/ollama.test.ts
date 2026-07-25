@@ -94,6 +94,113 @@ describe('createOllamaClient', () => {
     expect(result.content).toBe('hi')
   })
 
+  // translategemma does not understand a system prompt: it treats one as text to
+  // translate. Every request therefore carries a single user message unless the
+  // caller explicitly asks for a system message, and /translate never does.
+  it('sends exactly one user message and no system field when system is omitted', async () => {
+    let captured: Record<string, unknown> = {}
+    stubFetch(async (_url, init) => {
+      captured = JSON.parse(String((init as RequestInit).body))
+      return new Response(
+        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
+      )
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await client.chat({ model: 'm', prompt: 'hello' })
+
+    expect(captured.messages).toEqual([{ role: 'user', content: 'hello' }])
+    expect('system' in captured).toBe(false)
+  })
+
+  it('sends a system message before the user message when system is given', async () => {
+    let captured: Record<string, unknown> = {}
+    stubFetch(async (_url, init) => {
+      captured = JSON.parse(String((init as RequestInit).body))
+      return new Response(
+        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
+      )
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await client.chat({ model: 'm', prompt: 'hello', system: 'be terse' })
+
+    expect(captured.messages).toEqual([
+      { role: 'system', content: 'be terse' },
+      { role: 'user', content: 'hello' },
+    ])
+  })
+
+  it('puts think on the top level of the body when given', async () => {
+    let captured: Record<string, unknown> = {}
+    stubFetch(async (_url, init) => {
+      captured = JSON.parse(String((init as RequestInit).body))
+      return new Response(
+        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
+      )
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await client.chat({ model: 'm', prompt: 'p', think: 'high' })
+    expect(captured.think).toBe('high')
+
+    await client.chat({ model: 'm', prompt: 'p', think: false })
+    expect(captured.think).toBe(false)
+  })
+
+  it('omits think from the body when not given', async () => {
+    let captured: Record<string, unknown> = {}
+    stubFetch(async (_url, init) => {
+      captured = JSON.parse(String((init as RequestInit).body))
+      return new Response(
+        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
+      )
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await client.chat({ model: 'm', prompt: 'p' })
+
+    expect('think' in captured).toBe(false)
+  })
+
+  it('reports the token counts and load duration when ollama returns them', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message: { content: 'x' },
+            total_duration: 1_500_000_000,
+            load_duration: 900_000_000,
+            prompt_eval_count: 1234,
+            eval_count: 567,
+          }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.promptEvalTokens).toBe(1234)
+    expect(result.outputTokens).toBe(567)
+    expect(result.loadDurationMs).toBe(900)
+  })
+
+  it('leaves the token counts and load duration unset when ollama omits them', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ message: { content: 'x' }, total_duration: 0 }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.promptEvalTokens).toBeUndefined()
+    expect(result.outputTokens).toBeUndefined()
+    expect(result.loadDurationMs).toBeUndefined()
+  })
+
   it('passes the json schema through as format', async () => {
     let captured: { format?: unknown } = {}
     stubFetch(async (_url, init) => {

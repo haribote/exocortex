@@ -2,9 +2,11 @@ import { estimateTokens, MAX_INPUT_TOKENS } from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
 import {
   baseInputTokens,
+  buildReviewBody,
   buildReviewPrompt,
   packContext,
   type ReviewPromptInput,
+  SYSTEM_INSTRUCTION,
 } from './prompt.js'
 
 function makeInput(
@@ -74,6 +76,36 @@ describe('buildReviewPrompt', () => {
     const prompt = buildReviewPrompt(makeInput())
     expect(prompt).toContain('summary')
     expect(prompt).toContain('comments')
+  })
+})
+
+describe('buildReviewBody', () => {
+  const inputs: ReviewPromptInput[] = [
+    makeInput(),
+    makeInput({ rules: ['No Side Effects', 'Prefer const'] }),
+    makeInput({
+      rules: ['No Side Effects'],
+      contextFiles: [
+        { path: 'a.ts', content: 'const a = 1\nconst b = 2' },
+        { path: 'src/b.ts', content: 'export function f() {\n  return 1\n}' },
+      ],
+      diff: 'diff --git a/a.ts b/a.ts\n+const a = 1',
+      language: 'rust',
+    }),
+  ]
+
+  // Moving the system instruction out of the body must not shift a single byte
+  // of the baseline prompt, or the eval numbers stop comparing across runs.
+  it('rejoins with the system instruction into the exact prompt buildReviewPrompt returns', () => {
+    for (const input of inputs) {
+      expect(buildReviewPrompt(input)).toBe(
+        [SYSTEM_INSTRUCTION, buildReviewBody(input)].join('\n\n'),
+      )
+    }
+  })
+
+  it('does not repeat the system instruction inside the body', () => {
+    expect(buildReviewBody(makeInput())).not.toContain(SYSTEM_INSTRUCTION)
   })
 })
 

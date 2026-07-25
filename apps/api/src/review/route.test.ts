@@ -1,18 +1,31 @@
-import { describe, expect, it } from 'vitest'
-import { createApp } from '../app.js'
+import { reviewResultJsonSchema } from '@exocortex/contract'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { type AppDeps, createApp } from '../app.js'
 import type {
   OllamaChatRequest,
   OllamaChatResult,
   OllamaClient,
 } from '../ollama.js'
 import {
+  createOllamaClient,
   OllamaResponseError,
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
 import { InvalidBaseError } from './git.js'
 import type { BuildInputResult, BuildReviewInput } from './input.js'
+import {
+  buildReviewBody,
+  buildReviewPrompt,
+  SYSTEM_INSTRUCTION,
+} from './prompt.js'
+import { parseReviewSystemMode, parseReviewThink } from './route.js'
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
+
+type ReviewKnobs = Pick<
+  AppDeps,
+  'reviewSystemMode' | 'reviewThinkPrefix' | 'reviewThink'
+>
 
 function fakeOllama(
   result: OllamaChatResult,
@@ -45,6 +58,7 @@ function fakeBuild(result: BuildInputResult | (() => never)): BuildReviewInput {
 function appWith(
   ollama: Pick<OllamaClient, 'chat'>,
   buildReviewInput?: BuildReviewInput,
+  knobs: ReviewKnobs = {},
 ) {
   return createApp({
     ollama: {
@@ -56,6 +70,7 @@ function appWith(
     reviewModel: 'qwen2.5-coder:14b',
     translateModel: 'test-translate-model',
     buildReviewInput: buildReviewInput ?? fakeBuild(okInput),
+    ...knobs,
   })
 }
 
@@ -253,6 +268,212 @@ describe('POST /review', () => {
     const res = await post(app, form({ language: 'typescript' }))
     expect(res.status).toBe(502)
     expect((await res.json()).error).toBe('invalid_model_output')
+  })
+})
+
+describe('POST /review model knobs', () => {
+  async function capture(knobs: ReviewKnobs = {}) {
+    let captured: OllamaChatRequest | undefined
+    const app = appWith(
+      fakeOllama({ content: validResult, totalDurationMs: 0 }, (r) => {
+        captured = r
+      }),
+      undefined,
+      knobs,
+    )
+    await post(app, form({ language: 'typescript' }))
+    if (captured === undefined) {
+      throw new Error('ollama.chat was never called')
+    }
+    return captured
+  }
+
+  it('sends the single-prompt request unchanged when nothing is configured', async () => {
+    const captured = await capture()
+
+    expect(captured.prompt).toBe(buildReviewPrompt(okInput.input))
+    expect(captured.system).toBeUndefined()
+    expect(captured.think).toBeUndefined()
+    expect('system' in captured).toBe(false)
+    expect('think' in captured).toBe(false)
+  })
+
+  it('sends the same single-prompt request when systemMode is explicitly none', async () => {
+    const captured = await capture({ reviewSystemMode: 'none' })
+
+    expect(captured.prompt).toBe(buildReviewPrompt(okInput.input))
+    expect(captured.system).toBeUndefined()
+  })
+
+  it('splits the instruction into a system message when systemMode is prefix', async () => {
+    const captured = await capture({ reviewSystemMode: 'prefix' })
+
+    expect(captured.system).toBe(SYSTEM_INSTRUCTION)
+    expect(captured.prompt).toBe(buildReviewBody(okInput.input))
+  })
+
+  it('prepends the think prefix to the system message', async () => {
+    const captured = await capture({
+      reviewSystemMode: 'prefix',
+      reviewThinkPrefix: 'Reasoning: high\n',
+    })
+
+    expect(captured.system).toBe(`Reasoning: high\n${SYSTEM_INSTRUCTION}`)
+  })
+
+  it('ignores the think prefix while systemMode is none', async () => {
+    const captured = await capture({ reviewThinkPrefix: 'Reasoning: high\n' })
+
+    expect(captured.prompt).toBe(buildReviewPrompt(okInput.input))
+    expect(captured.system).toBeUndefined()
+  })
+
+  it('passes think through to ollama', async () => {
+    expect((await capture({ reviewThink: 'high' })).think).toBe('high')
+    expect((await capture({ reviewThink: false })).think).toBe(false)
+    expect((await capture({ reviewThink: true })).think).toBe(true)
+  })
+})
+
+// The eval compares runs against the unconfigured baseline, so the bytes on the
+// wire must not move when a knob is merely available but unused.
+describe('POST /review default request bytes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('serialises to the same body the single-prompt design always sent', async () => {
+    let captured = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init: RequestInit) => {
+        captured = String(init.body)
+        return new Response(
+          JSON.stringify({ message: { content: validResult } }),
+        )
+      }),
+    )
+
+    const app = createApp({
+      ollama: createOllamaClient('http://ollama:11434'),
+      reviewModel: 'qwen2.5-coder:14b',
+      translateModel: 'test-translate-model',
+      buildReviewInput: fakeBuild(okInput),
+    })
+    await post(app, form({ language: 'typescript' }))
+
+    expect(captured).toBe(
+      JSON.stringify({
+        model: 'qwen2.5-coder:14b',
+        stream: false,
+        messages: [{ role: 'user', content: buildReviewPrompt(okInput.input) }],
+        format: reviewResultJsonSchema,
+        options: { temperature: 0 },
+      }),
+    )
+  })
+})
+
+describe('POST /review meta counters', () => {
+  it('reports the token counts and load duration when ollama returns them', async () => {
+    const app = appWith(
+      fakeOllama({
+        content: validResult,
+        totalDurationMs: 10,
+        promptEvalTokens: 1200,
+        outputTokens: 340,
+        loadDurationMs: 5600,
+      }),
+    )
+    const body = await (
+      await post(app, form({ language: 'typescript' }))
+    ).json()
+
+    expect(body.meta.promptEvalTokens).toBe(1200)
+    expect(body.meta.outputTokens).toBe(340)
+    expect(body.meta.loadDurationMs).toBe(5600)
+  })
+
+  it('omits the counters entirely when ollama does not report them', async () => {
+    const app = appWith(
+      fakeOllama({ content: validResult, totalDurationMs: 10 }),
+    )
+    const body = await (
+      await post(app, form({ language: 'typescript' }))
+    ).json()
+
+    expect(Object.keys(body.meta).sort()).toEqual([
+      'droppedComments',
+      'droppedContextFiles',
+      'durationMs',
+      'inputTokens',
+      'model',
+    ])
+  })
+})
+
+describe('POST /review raw output debugging', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  async function invalidOutput(content: string) {
+    const app = appWith(fakeOllama({ content, totalDurationMs: 0 }))
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(502)
+    return await res.json()
+  }
+
+  it('does not leak the raw model output by default', async () => {
+    expect(await invalidOutput('not valid json')).not.toHaveProperty('raw')
+    expect(await invalidOutput('{"summary": 1}')).not.toHaveProperty('raw')
+  })
+
+  it('does not leak the raw model output when the flag is not exactly "1"', async () => {
+    vi.stubEnv('REVIEW_DEBUG_RAW', 'true')
+    expect(await invalidOutput('not valid json')).not.toHaveProperty('raw')
+  })
+
+  it('includes the raw model output when REVIEW_DEBUG_RAW is 1', async () => {
+    vi.stubEnv('REVIEW_DEBUG_RAW', '1')
+    expect((await invalidOutput('not valid json')).raw).toBe('not valid json')
+    expect((await invalidOutput('{"summary": 1}')).raw).toBe('{"summary": 1}')
+  })
+
+  it('truncates the raw model output to 2000 characters', async () => {
+    vi.stubEnv('REVIEW_DEBUG_RAW', '1')
+    const body = await invalidOutput('x'.repeat(5000))
+    expect(body.raw).toHaveLength(2000)
+  })
+})
+
+describe('parseReviewSystemMode', () => {
+  it('defaults to none when unset, empty, or unrecognised', () => {
+    expect(parseReviewSystemMode(undefined)).toBe('none')
+    expect(parseReviewSystemMode('')).toBe('none')
+    expect(parseReviewSystemMode('nonsense')).toBe('none')
+    expect(parseReviewSystemMode('none')).toBe('none')
+  })
+
+  it('selects prefix when asked for', () => {
+    expect(parseReviewSystemMode('prefix')).toBe('prefix')
+  })
+})
+
+describe('parseReviewThink', () => {
+  it('leaves think unset when the variable is unset or empty', () => {
+    expect(parseReviewThink(undefined)).toBeUndefined()
+    expect(parseReviewThink('')).toBeUndefined()
+  })
+
+  it('reads "true" and "false" as booleans', () => {
+    expect(parseReviewThink('true')).toBe(true)
+    expect(parseReviewThink('false')).toBe(false)
+  })
+
+  it('passes any other value through as a string level', () => {
+    expect(parseReviewThink('high')).toBe('high')
+    expect(parseReviewThink('low')).toBe('low')
   })
 })
 

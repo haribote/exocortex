@@ -12,16 +12,23 @@ export class OllamaResponseError extends Error {
   }
 }
 
+export type OllamaThink = boolean | string
+
 export interface OllamaChatRequest {
   model: string
   prompt: string
+  system?: string
   format?: unknown
   temperature?: number
+  think?: OllamaThink
 }
 
 export interface OllamaChatResult {
   content: string
   totalDurationMs: number
+  promptEvalTokens?: number
+  outputTokens?: number
+  loadDurationMs?: number
 }
 
 export interface OllamaChatChunk {
@@ -272,6 +279,16 @@ function toReadError(cause: unknown, options: IterateOptions): Error {
   return new OllamaUnreachableError('ollama stream failed', { cause })
 }
 
+function buildMessages(
+  request: OllamaChatRequest,
+): { role: string; content: string }[] {
+  const user = { role: 'user', content: request.prompt }
+  if (request.system === undefined) {
+    return [user]
+  }
+  return [{ role: 'system', content: request.system }, user]
+}
+
 function buildBody(
   request: OllamaChatRequest,
   stream: boolean,
@@ -279,13 +296,16 @@ function buildBody(
   const body: Record<string, unknown> = {
     model: request.model,
     stream,
-    messages: [{ role: 'user', content: request.prompt }],
+    messages: buildMessages(request),
   }
   if (request.format !== undefined) {
     body.format = request.format
   }
   if (request.temperature !== undefined) {
     body.options = { temperature: request.temperature }
+  }
+  if (request.think !== undefined) {
+    body.think = request.think
   }
   return body
 }
@@ -296,10 +316,20 @@ function toChatResult(body: unknown): OllamaChatResult {
   const content = typeof message.content === 'string' ? message.content : ''
   const totalDuration =
     typeof record.total_duration === 'number' ? record.total_duration : 0
-  return {
+  const result: OllamaChatResult = {
     content,
     totalDurationMs: Math.round(totalDuration / 1_000_000),
   }
+  if (typeof record.prompt_eval_count === 'number') {
+    result.promptEvalTokens = record.prompt_eval_count
+  }
+  if (typeof record.eval_count === 'number') {
+    result.outputTokens = record.eval_count
+  }
+  if (typeof record.load_duration === 'number') {
+    result.loadDurationMs = Math.round(record.load_duration / 1_000_000)
+  }
+  return result
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -5,21 +5,53 @@ import {
 } from '@exocortex/contract'
 import type { Hono } from 'hono'
 import {
+  type OllamaChatRequest,
   type OllamaClient,
   OllamaResponseError,
+  type OllamaThink,
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
 import { InvalidBaseError } from './git.js'
 import { type BuildReviewInput, createBuildReviewInput } from './input.js'
-import { buildReviewPrompt } from './prompt.js'
+import {
+  buildReviewBody,
+  buildReviewPrompt,
+  type ReviewPromptInput,
+  SYSTEM_INSTRUCTION,
+} from './prompt.js'
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 import { verifyComments } from './verify.js'
+
+export type ReviewSystemMode = 'none' | 'prefix'
 
 export interface ReviewDeps {
   ollama: OllamaClient
   model: string
   buildInput?: BuildReviewInput
+  systemMode?: ReviewSystemMode
+  thinkPrefix?: string
+  think?: OllamaThink
+}
+
+const RAW_DEBUG_LIMIT = 2000
+
+export function parseReviewSystemMode(
+  value: string | undefined,
+): ReviewSystemMode {
+  return value === 'prefix' ? 'prefix' : 'none'
+}
+
+export function parseReviewThink(
+  value: string | undefined,
+): OllamaThink | undefined {
+  if (value === undefined || value === '') {
+    return undefined
+  }
+  if (value === 'true' || value === 'false') {
+    return value === 'true'
+  }
+  return value
 }
 
 function parseJson(text: string): unknown {
@@ -28,6 +60,35 @@ function parseJson(text: string): unknown {
   } catch {
     return null
   }
+}
+
+function buildChatRequest(
+  deps: ReviewDeps,
+  input: ReviewPromptInput,
+): OllamaChatRequest {
+  const request: OllamaChatRequest = {
+    model: deps.model,
+    prompt:
+      deps.systemMode === 'prefix'
+        ? buildReviewBody(input)
+        : buildReviewPrompt(input),
+    format: reviewResultJsonSchema,
+    temperature: 0,
+  }
+  if (deps.systemMode === 'prefix') {
+    request.system = `${deps.thinkPrefix ?? ''}${SYSTEM_INSTRUCTION}`
+  }
+  if (deps.think !== undefined) {
+    request.think = deps.think
+  }
+  return request
+}
+
+function rawDebug(content: string): { raw: string } | undefined {
+  if (process.env.REVIEW_DEBUG_RAW !== '1') {
+    return undefined
+  }
+  return { raw: content.slice(0, RAW_DEBUG_LIMIT) }
 }
 
 export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
@@ -106,12 +167,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
 
     let result: Awaited<ReturnType<OllamaClient['chat']>>
     try {
-      result = await deps.ollama.chat({
-        model: deps.model,
-        prompt: buildReviewPrompt(built.input),
-        format: reviewResultJsonSchema,
-        temperature: 0,
-      })
+      result = await deps.ollama.chat(buildChatRequest(deps, built.input))
     } catch (cause) {
       if (cause instanceof OllamaTimeoutError) {
         return c.json(
@@ -142,6 +198,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         {
           error: 'invalid_model_output',
           message: 'model did not return valid json',
+          ...rawDebug(result.content),
         },
         502,
       )
@@ -150,7 +207,11 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
     const review = reviewResultSchema.safeParse(raw)
     if (!review.success) {
       return c.json(
-        { error: 'invalid_model_output', message: review.error.message },
+        {
+          error: 'invalid_model_output',
+          message: review.error.message,
+          ...rawDebug(result.content),
+        },
         502,
       )
     }
@@ -169,6 +230,9 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         model: deps.model,
         inputTokens: built.inputTokens,
         durationMs: result.totalDurationMs,
+        promptEvalTokens: result.promptEvalTokens,
+        outputTokens: result.outputTokens,
+        loadDurationMs: result.loadDurationMs,
       },
     })
   })

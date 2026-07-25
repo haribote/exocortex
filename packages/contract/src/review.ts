@@ -37,7 +37,14 @@ export const reviewMetaSchema = z.object({
   durationMs: z.number().int(),
   droppedComments: z.number().int(),
   droppedContextFiles: z.number().int(),
+  promptEvalTokens: z.number().int().optional(),
+  outputTokens: z.number().int().optional(),
+  loadDurationMs: z.number().int().optional(),
 })
+
+export function normalizeQuote(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
 
 export const reviewResponseSchema = z.object({
   summary: z.string(),
