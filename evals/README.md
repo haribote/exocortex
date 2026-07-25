@@ -1,6 +1,8 @@
 # @exocortex/evals
 
 `REVIEW_MODEL` を差し替えたときのレビュー品質を、再現可能な形で比較するための eval harness である。
+本番の既定構成を baseline とし、任意のモデルを候補として並べて測れる。
+新しいモデルが出たときに、乗り換える価値があるかを判定するために置いてある。
 
 ## 何を測るか
 
@@ -38,7 +40,9 @@ pnpm --filter @exocortex/evals test
 - **fixture の隔離**：`createFixture` は `mkdtemp` 配下にしかリポジトリを作らず、case のソースディレクトリを書き換えない
 - **diff の内容**：`base` / `worktree` / `staged` の 3 モードそれぞれで、サーバーが集める diff に仕込んだ行が現れる
 - **切り替えコマンドの安全性**：`<|think|>` のような shell metacharacter を含む値が、リモートに literal のまま届く
-- **既定でリモートを触らないこと**：`--switch` が無ければ config は単なるラベルに解決される
+- **既定でリモートを触らないこと**：`--switch` が無ければ config は単なるラベルに解決され、モデルの検証も走らない
+- **測る前に止まること**：`REVIEW_MODEL` がサーバーに無い config があると、1 件も測らずに欠けている一覧を出して終わる
+- **baseline の位置**：baseline は常に先頭で 1 回だけ測られる
 
 ## 計測の実行
 
@@ -63,6 +67,9 @@ node src/run.ts --run 2026-07 --configs gemma4:12b --repeats 3
 サーバーが報告した `meta.model` が `--configs` の値と食い違うと警告が出る。
 再起動を忘れたまま測ってしまう事故は、これで気付ける。
 
+`--configs` を省略すると、その 1 件は `current` という id で記録される。
+サーバーの現状をそのまま測った、という意味である。
+
 モデルを入れ替えたら、同じ `--run` で次の config を測る。
 結果は同じ `results.ndjson` に追記される。
 
@@ -70,20 +77,23 @@ node src/run.ts --run 2026-07 --configs gemma4:12b --repeats 3
 
 - `--run <id>`：出力先を `runs/<id>/` に決める（既定 `default`）
 - `--configs <a,b>`：計測する config。`--switch` の有無で意味が変わる（下記）
+- `--candidates <a,b>`：候補のモデル名。各名前がそのまま config になる。`--switch` が要る（下記）
+- `--configs-file <path>`：config 定義を追加で読む。`--switch` が要る（下記）
 - `--cases <a,b>`：case を絞る（既定は全件）
 - `--repeats <n>`：同じ組み合わせを何回測るか（既定 1）
 - `--endpoint <url>`：レビューサーバーの URL（既定 `http://localhost:11435`）
 - `--timeout <ms>`：1 リクエストの上限（既定 600000）
 - `--switch`：config ごとにサーバーを切り替える（下記）
+- `--pull`：サーバーに無いモデルを `ollama pull` で取得する。`--switch` が要る
 - `--health-timeout <ms>`：切り替え後に `/health` を待つ上限（既定 180000）
 
 ## 無人実行のための自動切り替え
 
-6 config を 1 つずつ手で切り替えるのは、一晩の無人実行には向かない。
+候補を 1 つずつ手で切り替えるのは、一晩の無人実行には向かない。
 `--switch` を付けると、harness が config ごとにサーバーを再作成してから測る。
 
 ```bash
-node src/run.ts --run 2026-07 --switch --repeats 3
+node src/run.ts --run 2026-08 --switch --candidates gemma4:26b,qwen3.5:27b --repeats 3
 ```
 
 `--switch` を付けたときだけ、harness はリモートを触る。
@@ -91,42 +101,48 @@ node src/run.ts --run 2026-07 --switch --repeats 3
 事故で本番サービスを再起動しないための切り分けである。
 `EXOCORTEX_SWITCH=1` でも有効にできる。
 
-`--switch` を付けると、`--configs` の意味がラベルから `configs.json` の id に変わる。
-`--configs` を省略すると `configs.json` の全 config を順に測る。
+`--switch` を付けると、`--configs` の意味がラベルから config の id に変わる。
+`--configs` を省略すると、baseline と `--candidates`、`--configs-file` で足した config を順に測る。
 
-### configs.json
+### 候補の加え方
 
-計測する config は `configs.json` に定義する。
-`id` と、サーバーに設定する環境変数の組である。
+config は `id` と、サーバーに設定する環境変数の組である。
+tracked な `configs.json` には baseline だけが入っている。
+
+```json
+[{ "id": "default", "env": { "REVIEW_MODEL": "gemma4:12b" } }]
+```
+
+**baseline** は本番の既定構成をそのまま写した config である。
+候補は baseline とのペア比較で判定するため、harness は baseline を常に先頭で 1 回だけ測る。
+
+候補を加える経路は 2 つある。
+既定のノブのまま新しいモデルを試すなら、`--candidates` にモデル名を並べる。
+各名前がそのまま config の id になり、`env` は `REVIEW_MODEL` だけを持つ。
+
+`REVIEW_THINK` や `REVIEW_SYSTEM_MODE` を変えた対照を作るなら、config を書いたファイルを `--configs-file` に渡す。
 
 ```json
 [
-  { "id": "C0", "env": { "REVIEW_MODEL": "qwen3:14b" } },
   {
-    "id": "C2",
+    "id": "thinkless",
     "env": { "REVIEW_MODEL": "gemma4:12b", "REVIEW_THINK": "false" }
   }
 ]
 ```
 
-現在の 6 config は次のとおりである。
+このファイルは `configs.local.json` という名前を慣習とし、`.gitignore` に入れてある。
+tracked なファイルを編集せずに済むため、clone や fork した先で `git pull` が衝突しない。
 
-| id | REVIEW_MODEL | 設定 |
-| --- | --- | --- |
-| C0 | `qwen3:14b` | なし。thinking 有効 |
-| C0p | `qwen3:14b` | `REVIEW_SYSTEM_MODE=prefix` |
-| C1 | `gemma4:12b` | なし。thinking 有効 |
-| C2 | `gemma4:12b` | `REVIEW_THINK=false` |
-| C3 | `qwen3.5:9b` | なし |
-| C4 | `gpt-oss:20b` | `REVIEW_THINK=high` |
+ファイル自身が `default` という id を定義していれば、そちらが baseline になる。
+baseline を二重に測ることはない。
+`--candidates` との併用もできる。
 
-先頭には baseline を置く。
-本番で動いている構成をそのまま写したものを baseline とし、候補はそれとのペア比較で判定する。
-C0 と C0p のように同じモデルで 1 つの変数だけを変えた組を混ぜておくと、差がモデルによるものか設定によるものかを切り分けられる。
+同じモデルで 1 つの変数だけを変えた組を混ぜておくと、差がモデルによるものか設定によるものかを切り分けられる。
 
 thinking の有無の対照は `REVIEW_THINK` で作る。
-`gemma4:12b` は `think` 未指定と `think: true` が完全に同一の結果になり、thinking は既定で有効だと実測で分かったためである。
-`think: false` は 3 モデルすべてで thinking を確実に止める。
+`gemma4:12b` では `think` 未指定と `think: true` が完全に同一の結果になり、thinking は既定で有効だと実測で分かっている。
+止めるには `false` を渡す。
 
 `env` に書いた変数だけがサーバーに渡る。
 ある config で指定しなかった変数は、compose ファイルの既定値に戻る。
@@ -145,9 +161,24 @@ thinking の有無の対照は `REVIEW_THINK` で作る。
 `ollama` サービスは再作成しない。
 `OLLAMA_MAX_LOADED_MODELS=1` が新しいモデルへの入れ替えを行う。
 
+### モデルが揃っているかの検証
+
+`--switch` を付けたときは、1 件も測る前に、全 config の `REVIEW_MODEL` がサーバーにあるかを確かめる。
+`ollama list` の出力と照合し、欠けているモデルがあれば、その一覧を出してそこで終了する。
+
+この検証を省くと、欠けているモデルは warm-up の失敗として現れ、その config は飛ばされる。
+一晩の無人実行では、朝になって初めて気付くことになる。
+Ollama は `ollama run` なら自動で pull するが、harness が通る `/api/chat` では pull しないため、この経路では取得されない。
+
+`--pull` を付けたときだけ、欠けているモデルを `ollama pull` で取得してから先へ進む。
+既定にしていないのは、モデル名をタイプミスしたときに意図しない大きなダウンロードが始まらないようにするためである。
+
+`--switch` が無いときは検証しない。
+config が単なるラベルで、モデルを制御していないからである。
+
 ### 切り替えの手順
 
-各 config のバッチに入る前に、harness は次を順に行う。
+検証を通ったあと、各 config のバッチに入る前に、harness は次を順に行う。
 
 1. ssh 経由で `ai-api` を新しい環境変数で再作成する
 2. `/health` が `{"status":"ok"}` を返すまで待つ
