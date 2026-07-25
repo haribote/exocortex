@@ -29,6 +29,10 @@ services:
       OLLAMA_URL: http://ollama:11434
       REVIEW_MODEL: ${REVIEW_MODEL:-qwen3:14b}
       TRANSLATE_MODEL: ${TRANSLATE_MODEL:-translategemma:12b}
+      REVIEW_SYSTEM_MODE: ${REVIEW_SYSTEM_MODE:-}
+      REVIEW_THINK_PREFIX: ${REVIEW_THINK_PREFIX:-}
+      REVIEW_THINK: ${REVIEW_THINK:-}
+      REVIEW_DEBUG_RAW: ${REVIEW_DEBUG_RAW:-}
     depends_on:
       - ollama
 

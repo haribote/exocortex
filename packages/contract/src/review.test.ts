@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeQuote,
   reviewCommentSchema,
   reviewMetaSchema,
   reviewRequestSchema,
@@ -90,6 +91,47 @@ describe('reviewMetaSchema', () => {
     })
     expect(parsed.droppedComments).toBe(3)
     expect(parsed.droppedContextFiles).toBe(2)
+  })
+
+  const required = {
+    model: 'm',
+    inputTokens: 1,
+    durationMs: 1,
+    droppedComments: 0,
+    droppedContextFiles: 0,
+  }
+
+  it('accepts meta without the token and load duration counters', () => {
+    const parsed = reviewMetaSchema.parse(required)
+    expect(parsed.promptEvalTokens).toBeUndefined()
+    expect(parsed.outputTokens).toBeUndefined()
+    expect(parsed.loadDurationMs).toBeUndefined()
+  })
+
+  it('carries the token and load duration counters when reported', () => {
+    const parsed = reviewMetaSchema.parse({
+      ...required,
+      promptEvalTokens: 1200,
+      outputTokens: 340,
+      loadDurationMs: 5600,
+    })
+    expect(parsed.promptEvalTokens).toBe(1200)
+    expect(parsed.outputTokens).toBe(340)
+    expect(parsed.loadDurationMs).toBe(5600)
+  })
+})
+
+describe('normalizeQuote', () => {
+  it('collapses runs of whitespace into a single space', () => {
+    expect(normalizeQuote('const   a\t=\n1')).toBe('const a = 1')
+  })
+
+  it('trims surrounding whitespace', () => {
+    expect(normalizeQuote('  return 1  ')).toBe('return 1')
+  })
+
+  it('maps a whitespace-only quote to an empty string', () => {
+    expect(normalizeQuote('   \n\t ')).toBe('')
   })
 })
 

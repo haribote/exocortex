@@ -85,6 +85,21 @@ describe('docker-compose.yml', () => {
     ).toBeUndefined()
   })
 
+  it('passes the review model knobs to ai-api', () => {
+    const environment = getEnvironment(aiApi)
+    for (const name of [
+      'REVIEW_SYSTEM_MODE',
+      'REVIEW_THINK_PREFIX',
+      'REVIEW_THINK',
+      'REVIEW_DEBUG_RAW',
+    ]) {
+      expect(
+        environment[name],
+        `ai-api must receive ${name}: the eval harness sets it on the host, and compose only forwards variables the service declares`,
+      ).toBe(`\${${name}:-}`)
+    }
+  })
+
   it('sets OLLAMA_CONTEXT_LENGTH and OLLAMA_KV_CACHE_TYPE for the 32K + q8_0 VRAM budget', () => {
     const environment = getEnvironment(ollama)
     expect(environment.OLLAMA_CONTEXT_LENGTH).toBe(32768)

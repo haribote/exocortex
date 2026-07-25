@@ -11,7 +11,7 @@ export interface ReviewPromptInput {
   contextFiles: ContextFile[]
 }
 
-const SYSTEM_INSTRUCTION = `You are a meticulous senior code reviewer.
+export const SYSTEM_INSTRUCTION = `You are a meticulous senior code reviewer.
 Review the given diff and report concrete, actionable problems.
 Do not praise. Do not restate what the code does. Report only problems worth fixing.
 
@@ -45,8 +45,8 @@ export function renderContextFile(file: ContextFile): string {
   return `File: ${file.path}\n\`\`\`\n${numberLines(file.content)}\n\`\`\``
 }
 
-export function buildReviewPrompt(input: ReviewPromptInput): string {
-  const sections: string[] = [SYSTEM_INSTRUCTION, `Language: ${input.language}`]
+export function buildReviewBody(input: ReviewPromptInput): string {
+  const sections: string[] = [`Language: ${input.language}`]
 
   if (input.rules.length > 0) {
     sections.push(
@@ -61,6 +61,10 @@ export function buildReviewPrompt(input: ReviewPromptInput): string {
   sections.push(`Diff to review:\n\`\`\`diff\n${input.diff}\n\`\`\``)
 
   return sections.join('\n\n')
+}
+
+export function buildReviewPrompt(input: ReviewPromptInput): string {
+  return [SYSTEM_INSTRUCTION, buildReviewBody(input)].join('\n\n')
 }
 
 export type PromptBase = Omit<ReviewPromptInput, 'contextFiles'>

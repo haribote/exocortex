@@ -82,7 +82,10 @@ rm -rf "$tmp"
     "inputTokens": 12043,
     "durationMs": 18234,
     "droppedComments": 1,
-    "droppedContextFiles": 2
+    "droppedContextFiles": 2,
+    "promptEvalTokens": 11890,
+    "outputTokens": 512,
+    "loadDurationMs": 5600
   }
 }
 ```
@@ -91,6 +94,15 @@ rm -rf "$tmp"
 `quote` は指摘した行を逐語でコピーしたもので、context に照合できないコメントはサーバーが破棄する。
 その破棄数が `meta.droppedComments` である。
 `meta.droppedContextFiles` は、予算に収めるためにサーバーが落とした context ファイルの数である。
+
+`meta` の末尾 3 つは Ollama が実測値を返したときだけ現れる。
+`promptEvalTokens` と `outputTokens` はモデルが実際に消費した入力トークン数と出力トークン数である。
+`inputTokens` がサーバー側の見積もりであるのに対し、こちらはモデルの実測値なので、見積もりの精度を確かめるのに使える。
+
+`outputTokens` は thinking の分を含まない。
+`/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである（Ollama 0.32.1 で実測）。
+thinking がどれだけ出力枠を使ったかを知るには、`REVIEW_DEBUG_RAW` を有効にして `thinking` の長さを見る。
+`loadDurationMs` はモデルのロードに要した時間で、`durationMs` の内数である。
 
 ## POST /translate
 
@@ -136,6 +148,13 @@ curl -Nsf -H 'Content-Type: application/json' \
 | Ollama 到達不可 | 503 | `ollama_unreachable` |
 | 推論タイムアウト | 504 | `inference_timeout` |
 | snapshot 過大、または diff 単体が context 予算を超過 | 413 | `snapshot_too_large` / `context_too_large` |
+
+`invalid_model_output` は、モデルが JSON を返さなかったか、返した JSON が schema に合わなかったことを示す。
+サーバーの環境変数 `REVIEW_DEBUG_RAW` が有効なとき、この 502 のレスポンスは `raw` と `thinking` を追加で含む。
+`raw` はモデルの生出力、`thinking` は thinking モデルの思考テキストである。
+どちらも長い場合は先頭 1000 文字と末尾 1000 文字だけを残し、あいだを `...[truncated]...` に置き換える。
+JSON が壊れるのは常に末尾なので、末尾を捨てると原因が見えなくなるためである。
+既定では無効で、`thinking` はモデルが思考テキストを返したときだけ現れる。
 
 エラーの body は `{ "error": string, "message": string }` である。
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import type {
   OllamaChatChunk,
+  OllamaChatRequest,
   OllamaChatStreamOptions,
   OllamaClient,
 } from '../ollama.js'
@@ -123,6 +124,25 @@ describe('POST /translate', () => {
       body: JSON.stringify({ text: 'x', from: 'fr', to: 'en' }),
     })
     expect(res.status).toBe(400)
+  })
+
+  // translategemma reads a system prompt as more text to translate, so the
+  // structural guarantee is that /translate never sets one.
+  it('asks ollama without a system prompt', async () => {
+    let captured: OllamaChatRequest | undefined
+    const app = appWith(async (request) => {
+      captured = request
+      return iterableOf([delta('Hello'), done(0)])
+    })
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: jaToEn,
+    })
+    await readNdjson(res)
+
+    expect(captured).toBeDefined()
+    expect('system' in (captured ?? {})).toBe(false)
   })
 
   it('returns a 504 JSON body when ollama times out before committing', async () => {
