@@ -1,7 +1,7 @@
 # @exocortex/evals
 
 `REVIEW_MODEL` を差し替えたときのレビュー品質を、再現可能な形で比較するための eval harness である。
-本番の既定構成を baseline とし、任意のモデルを候補として並べて測れる。
+本番のデフォルト構成を基準に、任意のモデルを候補として並べて測れる。
 新しいモデルが出たときに、乗り換える価値があるかを判定するために置いてある。
 
 ## 何を測るか
@@ -42,7 +42,7 @@ pnpm --filter @exocortex/evals test
 - **切り替えコマンドの安全性**：`<|think|>` のような shell metacharacter を含む値が、リモートに literal のまま届く
 - **既定でリモートを触らないこと**：`--switch` が無ければ config は単なるラベルに解決され、モデルの検証も走らない
 - **測る前に止まること**：`REVIEW_MODEL` がサーバーに無い config があると、1 件も測らずに欠けている一覧を出して終わる
-- **baseline の位置**：baseline は常に先頭で 1 回だけ測られる
+- **デフォルト構成の位置**：`default` は常に先頭で 1 回だけ測られる
 
 ## 計測の実行
 
@@ -102,19 +102,19 @@ node src/run.ts --run 2026-08 --switch --candidates gemma4:26b,qwen3.5:27b --rep
 `EXOCORTEX_SWITCH=1` でも有効にできる。
 
 `--switch` を付けると、`--configs` の意味がラベルから config の id に変わる。
-`--configs` を省略すると、baseline と `--candidates`、`--configs-file` で足した config を順に測る。
+`--configs` を省略すると、`default` と `--candidates`、`--configs-file` で足した config を順に測る。
 
 ### 候補の加え方
 
 config は `id` と、サーバーに設定する環境変数の組である。
-tracked な `configs.json` には baseline だけが入っている。
+tracked な `configs.json` にはデフォルト構成だけが入っている。
 
 ```json
 [{ "id": "default", "env": { "REVIEW_MODEL": "gemma4:12b" } }]
 ```
 
-**baseline** は本番の既定構成をそのまま写した config である。
-候補は baseline とのペア比較で判定するため、harness は baseline を常に先頭で 1 回だけ測る。
+id が `default` の config は、本番のデフォルト構成をそのまま写したものである。
+候補はこれとのペア比較で判定するため、harness は `default` を常に先頭で 1 回だけ測る。
 
 候補を加える経路は 2 つある。
 既定のノブのまま新しいモデルを試すなら、`--candidates` にモデル名を並べる。
@@ -134,8 +134,8 @@ tracked な `configs.json` には baseline だけが入っている。
 このファイルは `configs.local.json` という名前を慣習とし、`.gitignore` に入れてある。
 tracked なファイルを編集せずに済むため、clone や fork した先で `git pull` が衝突しない。
 
-ファイル自身が `default` という id を定義していれば、そちらが baseline になる。
-baseline を二重に測ることはない。
+ファイル自身が `default` という id を定義していれば、そちらが優先される。
+デフォルト構成を二重に測ることはない。
 `--candidates` との併用もできる。
 
 同じモデルで 1 つの変数だけを変えた組を混ぜておくと、差がモデルによるものか設定によるものかを切り分けられる。
@@ -358,10 +358,10 @@ fixture の大きさは `MAX_INPUT_TOKENS` を基準に決めてある。
 目安として、次の 5 つを順に見る。
 
 1. **動作可能性**：`schemaOk` が閾値以上であること。壊れた出力を返す割合が高ければ、品質以前に使えない
-2. **非退行**：baseline が検出できている case を落とさないこと
-3. **優位**：case 別のペア比較で、候補のみが検出した case 数が baseline のみを一定数上回ること
-4. **誤検出**：clean case で `major` 以上の指摘が baseline を上回らないこと
-5. **引用の質**：`quote 一致` が baseline から大きく落ちないこと
+2. **非退行**：デフォルト構成が検出できている case を落とさないこと
+3. **優位**：case 別のペア比較で、候補のみが検出した case 数がデフォルト構成のみを一定数上回ること
+4. **誤検出**：clean case で `major` 以上の指摘がデフォルト構成を上回らないこと
+5. **引用の質**：`quote 一致` がデフォルト構成から大きく落ちないこと
 
 3 をペア比較にするのは、母数が小さいためである。
 バグあり 12 件では検出率の標準誤差が ±14pt 程度あり、集計値の大小では 7/12 と 9/12 を区別できない。
