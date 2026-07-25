@@ -185,6 +185,57 @@ describe('createOllamaClient', () => {
     expect(result.loadDurationMs).toBe(900)
   })
 
+  // Ollama 0.32.1 docs/api.md, /api/chat: "thinking: (for thinking models) the
+  // model's thinking process", a sibling of content inside the message object.
+  it('reports the thinking text from message.thinking', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message: { content: '{}', thinking: 'first I count the letters' },
+            total_duration: 0,
+          }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.thinking).toBe('first I count the letters')
+  })
+
+  it('leaves thinking unset when the model returned none', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ message: { content: '{}' }, total_duration: 0 }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.thinking).toBeUndefined()
+  })
+
+  it('keeps the thinking text even when the content came back empty', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message: { content: '', thinking: 'ran out of budget' },
+            total_duration: 0,
+          }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.content).toBe('')
+    expect(result.thinking).toBe('ran out of budget')
+  })
+
   it('leaves the token counts and load duration unset when ollama omits them', async () => {
     stubFetch(
       async () =>

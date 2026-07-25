@@ -12,7 +12,7 @@ export class OllamaResponseError extends Error {
   }
 }
 
-export type OllamaThink = boolean | string
+export type OllamaThink = boolean | 'low' | 'medium' | 'high' | 'max'
 
 export interface OllamaChatRequest {
   model: string
@@ -26,6 +26,7 @@ export interface OllamaChatRequest {
 export interface OllamaChatResult {
   content: string
   totalDurationMs: number
+  thinking?: string
   promptEvalTokens?: number
   outputTokens?: number
   loadDurationMs?: number
@@ -279,10 +280,13 @@ function toReadError(cause: unknown, options: IterateOptions): Error {
   return new OllamaUnreachableError('ollama stream failed', { cause })
 }
 
-function buildMessages(
-  request: OllamaChatRequest,
-): { role: string; content: string }[] {
-  const user = { role: 'user', content: request.prompt }
+interface OllamaMessage {
+  role: 'system' | 'user'
+  content: string
+}
+
+function buildMessages(request: OllamaChatRequest): OllamaMessage[] {
+  const user: OllamaMessage = { role: 'user', content: request.prompt }
   if (request.system === undefined) {
     return [user]
   }
@@ -319,6 +323,9 @@ function toChatResult(body: unknown): OllamaChatResult {
   const result: OllamaChatResult = {
     content,
     totalDurationMs: Math.round(totalDuration / 1_000_000),
+  }
+  if (typeof message.thinking === 'string') {
+    result.thinking = message.thinking
   }
   if (typeof record.prompt_eval_count === 'number') {
     result.promptEvalTokens = record.prompt_eval_count
