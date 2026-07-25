@@ -37,6 +37,8 @@ pnpm --filter @exocortex/evals test
 - **anchor の一意性**：全 case の全 anchor が、対応するファイルにちょうど 1 回だけ現れる
 - **fixture の隔離**：`createFixture` は `mkdtemp` 配下にしかリポジトリを作らず、case のソースディレクトリを書き換えない
 - **diff の内容**：`base` / `worktree` / `staged` の 3 モードそれぞれで、サーバーが集める diff に仕込んだ行が現れる
+- **切り替えコマンドの安全性**：`<|think|>` のような shell metacharacter を含む値が、リモートに literal のまま届く
+- **既定でリモートを触らないこと**：`--switch` が無ければ config は単なるラベルに解決される
 
 ## 計測の実行
 
@@ -49,7 +51,8 @@ pkill -f "11435:127.0.0.1:11435"
 ssh -f -N -o ExitOnForwardFailure=yes -L 11435:127.0.0.1:11435 exocortex
 ```
 
-比較したいモデルはサーバー側の環境変数で決まるため、一度に 1 つずつ測ります。
+既定では、harness はサーバーを一切触りません。
+比較したいモデルはサーバー側の環境変数で決まるため、自分で切り替えてから測ります。
 サーバーで `REVIEW_MODEL` を設定してコンテナを再起動し、そのモデル名を `--configs` に渡します。
 
 ```bash
@@ -70,11 +73,81 @@ node src/run.ts --run 2026-07 --configs qwen2.5-coder:14b --repeats 3
 オプションは次のとおりです。
 
 - `--run <id>`：出力先を `runs/<id>/` に決めます（既定 `default`）
-- `--configs <a,b>`：計測する config のラベル。モデル名をそのまま書きます（既定 `default`）
+- `--configs <a,b>`：計測する config。`--switch` の有無で意味が変わります（下記）
 - `--cases <a,b>`：case を絞ります（既定は全件）
 - `--repeats <n>`：同じ組み合わせを何回測るか（既定 1）
 - `--endpoint <url>`：レビューサーバーの URL（既定 `http://localhost:11435`）
 - `--timeout <ms>`：1 リクエストの上限（既定 600000）
+- `--switch`：config ごとにサーバーを切り替えます（下記）
+- `--health-timeout <ms>`：切り替え後に `/health` を待つ上限（既定 180000）
+
+## 無人実行のための自動切り替え
+
+6 config を 1 つずつ手で切り替えるのは、一晩の無人実行には向きません。
+`--switch` を付けると、harness が config ごとにサーバーを再作成してから測ります。
+
+```bash
+node src/run.ts --run 2026-07 --switch --repeats 3
+```
+
+**`--switch` を付けたときだけ、harness はリモートを触ります。**
+付けなければ従来どおり、config は単なるラベルで、モデル不一致は警告に留まります。
+事故で本番サービスを再起動しないための切り分けです。
+`EXOCORTEX_SWITCH=1` でも有効にできます。
+
+`--switch` を付けると、`--configs` の意味がラベルから `configs.json` の id に変わります。
+`--configs` を省略すると `configs.json` の全 config を順に measure します。
+
+### configs.json
+
+計測する config は `configs.json` に定義します。
+`id` と、サーバーに設定する環境変数の組です。
+
+```json
+[
+  { "id": "C0", "env": { "REVIEW_MODEL": "qwen3:14b" } },
+  { "id": "C2", "env": { "REVIEW_MODEL": "gemma4:12b" } }
+]
+```
+
+`env` に書いた変数だけがサーバーに渡ります。
+ある config で指定しなかった変数は、compose ファイルの既定値に戻ります。
+つまり各 config は差分ではなく、環境の完全な指定です。
+
+### 接続先の環境変数
+
+接続先はハードコードしていません。
+既定値は次のとおりで、いずれも環境変数で上書きできます。
+
+- `EXOCORTEX_SSH_HOST`：ssh の host（既定 `exocortex`）
+- `EXOCORTEX_WSL_DISTRO`：WSL のディストロ名（既定 `exocortex`）
+- `EXOCORTEX_COMPOSE_DIR`：compose ファイルのあるディレクトリ（既定 `/home/haribote/exocortex`）
+- `EXOCORTEX_API_SERVICE`：再作成する compose サービス名（既定 `ai-api`）
+
+`ollama` サービスは再作成しません。
+`OLLAMA_MAX_LOADED_MODELS=1` が新しいモデルへの入れ替えを行います。
+
+### 切り替えの手順
+
+各 config のバッチに入る前に、harness は次を順に行います。
+
+1. ssh 経由で `ai-api` を新しい環境変数で再作成する
+2. `/health` が `{"status":"ok"}` を返すまで待つ
+3. warm-up リクエストを 1 件投げて、その結果を捨てる
+4. `meta.model` が config の `REVIEW_MODEL` と一致することを確認する
+5. `ollama ps` を取得して `environment.md` に追記する
+
+warm-up の結果を捨てるのは、切り替え後の最初の 1 件がモデルのロード時間を含むからです。
+これを記録に混ぜると、その config だけレイテンシが実態より悪く出ます。
+
+`meta.model` が食い違ったときは、**その config を中断して次へ進みます**。
+ラベルと中身が食い違ったデータを記録しないためです。
+中断した事実は `environment.md` に残り、終了コードは 1 になります。
+ssh が失敗したときと `/health` が返らなかったときも同じ扱いです。
+
+`environment.md` には config ごとに `ollama ps` の出力が残ります。
+`100% GPU` でない config は、重みの一部が CPU に落ちています。
+その場合はレイテンシ比較から除外する必要があるため、`environment.md` にその旨を書き添えます。
 
 ## 途中で落ちたとき
 

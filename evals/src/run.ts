@@ -6,14 +6,33 @@ import { callReview, DEFAULT_ENDPOINT, DEFAULT_TIMEOUT_MS } from './client.ts'
 import { createFixture } from './fixture.ts'
 import { parseResults, RUNS_DIR, type RunRecord } from './report.ts'
 import { scoreOutcome } from './score.ts'
+import {
+  applyConfig,
+  type EvalConfig,
+  loadConfigs,
+  remoteTarget,
+  renderEnvironmentEntry,
+  sshRunner,
+  type WarmUpResult,
+  waitForHealth,
+} from './switch.ts'
+
+export const DEFAULT_HEALTH_TIMEOUT_MS = 180_000
 
 export interface RunOptions {
   runId: string
-  configs: string[]
+  configs: string[] | null
   caseIds: string[] | null
   repeats: number
   endpoint: string
   timeoutMs: number
+  switchEnabled: boolean
+  healthTimeoutMs: number
+}
+
+export interface ResolvedConfig {
+  id: string
+  env: Record<string, string> | null
 }
 
 function list(value: string | undefined): string[] | null {
@@ -24,7 +43,10 @@ function list(value: string | undefined): string[] | null {
     .filter((entry) => entry.length > 0)
 }
 
-export function parseOptions(argv: readonly string[]): RunOptions {
+export function parseOptions(
+  argv: readonly string[],
+  env: Record<string, string | undefined> = process.env,
+): RunOptions {
   const { values } = parseArgs({
     args: [...argv],
     options: {
@@ -34,6 +56,11 @@ export function parseOptions(argv: readonly string[]): RunOptions {
       repeats: { type: 'string', default: '1' },
       endpoint: { type: 'string', default: DEFAULT_ENDPOINT },
       timeout: { type: 'string', default: String(DEFAULT_TIMEOUT_MS) },
+      switch: { type: 'boolean', default: false },
+      'health-timeout': {
+        type: 'string',
+        default: String(DEFAULT_HEALTH_TIMEOUT_MS),
+      },
     },
   })
 
@@ -44,12 +71,40 @@ export function parseOptions(argv: readonly string[]): RunOptions {
 
   return {
     runId: values.run as string,
-    configs: list(values.configs) ?? ['default'],
+    configs: list(values.configs),
     caseIds: list(values.cases),
     repeats,
     endpoint: values.endpoint as string,
     timeoutMs: Number(values.timeout),
+    switchEnabled: values.switch === true || env.EXOCORTEX_SWITCH === '1',
+    healthTimeoutMs: Number(values['health-timeout']),
   }
+}
+
+// Without --switch the harness never touches the server: configs stay plain
+// labels and a mismatched model is only a warning, as it was before switching
+// existed. Restarting a production service is opt-in.
+export function resolveConfigs(
+  options: RunOptions,
+  defined: readonly EvalConfig[],
+): ResolvedConfig[] {
+  if (!options.switchEnabled) {
+    return (options.configs ?? ['default']).map((id) => ({ id, env: null }))
+  }
+
+  if (options.configs === null) {
+    return defined.map((config) => ({ id: config.id, env: config.env }))
+  }
+
+  return options.configs.map((id) => {
+    const found = defined.find((config) => config.id === id)
+    if (!found) {
+      throw new Error(
+        `no such config in configs.json: ${id} (have ${defined.map((config) => config.id).join(', ')})`,
+      )
+    }
+    return { id: found.id, env: found.env }
+  })
 }
 
 function selectCases(options: RunOptions): EvalCase[] {
@@ -113,6 +168,64 @@ async function measure(
   }
 }
 
+async function warmUp(
+  options: RunOptions,
+  evalCase: EvalCase,
+): Promise<WarmUpResult> {
+  const fixture = createFixture(evalCase)
+  try {
+    const outcome = await callReview({
+      archive: fixture.archive,
+      params: fixture.params,
+      endpoint: options.endpoint,
+      timeoutMs: options.timeoutMs,
+    })
+    return {
+      model: outcome.response?.meta.model ?? null,
+      wallMs: outcome.wallMs,
+      status: outcome.status,
+    }
+  } finally {
+    fixture.cleanup()
+  }
+}
+
+// The first request after a switch pays for loading the model into VRAM, so its
+// result is thrown away rather than recorded alongside the measured ones.
+async function prepare(
+  options: RunOptions,
+  config: ResolvedConfig,
+  warmUpCase: EvalCase,
+  environmentPath: string,
+): Promise<boolean> {
+  if (config.env === null) return true
+
+  const entry = await applyConfig(
+    { id: config.id, env: config.env },
+    remoteTarget(),
+    {
+      runner: sshRunner,
+      waitForHealth: () =>
+        waitForHealth({
+          endpoint: options.endpoint,
+          timeoutMs: options.healthTimeoutMs,
+        }),
+      warmUp: () => warmUp(options, warmUpCase),
+      now: () => new Date(),
+    },
+  )
+
+  appendFileSync(environmentPath, renderEnvironmentEntry(entry))
+  console.log(`${config.id}: switch ${entry.status}`)
+
+  if (entry.status !== 'ok') {
+    console.error(`${config.id}: skipped, ${entry.note ?? entry.status}`)
+    process.exitCode = 1
+    return false
+  }
+  return true
+}
+
 function describe(record: RunRecord): string {
   const score = record.score
   return [
@@ -129,13 +242,28 @@ function describe(record: RunRecord): string {
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2))
   const cases = selectCases(options)
+  const warmUpCase = cases[0]
+  if (warmUpCase === undefined) throw new Error('no cases selected')
+
+  const configs = resolveConfigs(
+    options,
+    options.switchEnabled ? loadConfigs() : [],
+  )
   const dir = join(RUNS_DIR, options.runId)
   mkdirSync(dir, { recursive: true })
 
   const resultsPath = join(dir, 'results.ndjson')
+  const environmentPath = join(dir, 'environment.md')
   const done = readDone(resultsPath)
 
-  for (const configId of options.configs) {
+  for (const config of configs) {
+    const configId = config.id
+    const expectedModel = config.env?.REVIEW_MODEL ?? configId
+
+    if (!(await prepare(options, config, warmUpCase, environmentPath))) {
+      continue
+    }
+
     for (const evalCase of cases) {
       for (let repeat = 1; repeat <= options.repeats; repeat++) {
         const key = doneKey(configId, evalCase.spec.id, repeat)
@@ -158,7 +286,7 @@ async function main(): Promise<void> {
           return
         }
 
-        if (record.model !== null && record.model !== configId) {
+        if (record.model !== null && record.model !== expectedModel) {
           console.warn(
             `warning: config ${configId} but the server reported model ${record.model}`,
           )
