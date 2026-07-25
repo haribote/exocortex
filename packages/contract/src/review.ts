@@ -39,6 +39,7 @@ export const reviewMetaSchema = z.object({
   droppedContextFiles: z.number().int(),
   promptEvalTokens: z.number().int().optional(),
   outputTokens: z.number().int().optional(),
+  thinkingChars: z.number().int().optional(),
   loadDurationMs: z.number().int().optional(),
 })
 

@@ -1,4 +1,5 @@
 import {
+  MAX_CONTEXT_TOKENS,
   normalizeQuote,
   type ReviewComment,
   type ReviewResponse,
@@ -301,6 +302,30 @@ describe('scoreOutcome', () => {
 
     expect(score.thinkingMeta).toEqual({ thinking: 1242 })
     expect(score.thinkingTokens).toBeNull()
+  })
+
+  // The names the server actually settled on. A smoke run recorded every one of
+  // these as null because the harness was not reading them.
+  it('reads the meta fields the server really sends', () => {
+    const score = scoreOutcome(
+      target,
+      outcomeWithMeta({
+        promptEvalTokens: 994,
+        outputTokens: 145,
+        thinkingChars: 4537,
+      }),
+    )
+
+    expect(score.promptEvalTokens).toBe(994)
+    expect(score.outputTokens).toBe(145)
+    expect(score.thinkingChars).toBe(4537)
+    expect(score.contextRemaining).toBe(MAX_CONTEXT_TOKENS - 994)
+  })
+
+  it('leaves outputTokens null when the server omits it', () => {
+    const score = scoreOutcome(target, outcomeWithMeta({ promptEvalTokens: 1 }))
+
+    expect(score.outputTokens).toBeNull()
   })
 
   it('ignores a thinking field that is not a number', () => {

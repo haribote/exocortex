@@ -395,6 +395,35 @@ describe('POST /review meta counters', () => {
     expect(body.meta.loadDurationMs).toBe(5600)
   })
 
+  // outputTokens comes from eval_count, which excludes the thinking text while
+  // `format` is set. Measuring the thinking budget needs its own field.
+  it('reports the thinking length when ollama returns thinking', async () => {
+    const app = appWith(
+      fakeOllama({
+        content: validResult,
+        totalDurationMs: 10,
+        outputTokens: 340,
+        thinking: 'a'.repeat(4537),
+      }),
+    )
+    const body = await (
+      await post(app, form({ language: 'typescript' }))
+    ).json()
+
+    expect(body.meta.thinkingChars).toBe(4537)
+  })
+
+  it('omits thinkingChars when the model did not think', async () => {
+    const app = appWith(
+      fakeOllama({ content: validResult, totalDurationMs: 10 }),
+    )
+    const body = await (
+      await post(app, form({ language: 'typescript' }))
+    ).json()
+
+    expect(body.meta).not.toHaveProperty('thinkingChars')
+  })
+
   it('omits the counters entirely when ollama does not report them', async () => {
     const app = appWith(
       fakeOllama({ content: validResult, totalDurationMs: 10 }),

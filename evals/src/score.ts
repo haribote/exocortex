@@ -18,6 +18,8 @@ const PROMPT_TOKEN_KEYS = [
   'promptTokens',
 ]
 
+const OUTPUT_TOKEN_KEYS = ['outputTokens', 'eval_count', 'completionTokens']
+
 const SEVERITY_RANK: Record<Severity, number> = {
   info: 0,
   minor: 1,
@@ -74,6 +76,7 @@ export interface Score {
   thinkingChars: number | null
   thinkingMeta: Record<string, number> | null
   promptEvalTokens: number | null
+  outputTokens: number | null
   contextRemaining: number | null
   perComment: CommentScore[]
   perExpected: ExpectedScore[]
@@ -123,14 +126,24 @@ export function readThinking(raw: unknown): ThinkingMetrics {
   }
 }
 
-export function readPromptEvalTokens(raw: unknown): number | null {
+function readTokenCount(raw: unknown, keys: readonly string[]): number | null {
   const meta = rawMeta(raw)
   if (meta === null) return null
-  for (const key of PROMPT_TOKEN_KEYS) {
+  for (const key of keys) {
     const value = meta[key]
     if (typeof value === 'number' && !Number.isNaN(value)) return value
   }
   return null
+}
+
+export function readPromptEvalTokens(raw: unknown): number | null {
+  return readTokenCount(raw, PROMPT_TOKEN_KEYS)
+}
+
+// eval_count excludes the thinking text while `format` is set, so this counts
+// the JSON output alone. Read thinkingChars alongside it to see the real cost.
+export function readOutputTokens(raw: unknown): number | null {
+  return readTokenCount(raw, OUTPUT_TOKEN_KEYS)
 }
 
 function citedLine(
@@ -268,6 +281,7 @@ export function scoreOutcome(
     wallMs: outcome.wallMs,
     ...thinking,
     promptEvalTokens,
+    outputTokens: readOutputTokens(outcome.raw),
     contextRemaining:
       promptEvalTokens === null ? null : MAX_CONTEXT_TOKENS - promptEvalTokens,
     perComment,

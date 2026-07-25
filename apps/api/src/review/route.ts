@@ -237,6 +237,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         durationMs: result.totalDurationMs,
         promptEvalTokens: result.promptEvalTokens,
         outputTokens: result.outputTokens,
+        thinkingChars: result.thinking?.length,
         loadDurationMs: result.loadDurationMs,
       },
     })
