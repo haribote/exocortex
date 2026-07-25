@@ -98,6 +98,10 @@ rm -rf "$tmp"
 `meta` の末尾 3 つは Ollama が実測値を返したときだけ現れる。
 `promptEvalTokens` と `outputTokens` はモデルが実際に消費した入力トークン数と出力トークン数である。
 `inputTokens` がサーバー側の見積もりであるのに対し、こちらはモデルの実測値なので、見積もりの精度を確かめるのに使える。
+
+`outputTokens` は thinking の分を含まない。
+`/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである（Ollama 0.32.1 で実測）。
+thinking がどれだけ出力枠を使ったかを知るには、`REVIEW_DEBUG_RAW` を有効にして `thinking` の長さを見る。
 `loadDurationMs` はモデルのロードに要した時間で、`durationMs` の内数である。
 
 ## POST /translate
