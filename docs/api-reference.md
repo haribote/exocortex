@@ -56,7 +56,7 @@ root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 tar --no-mac-metadata -czf "$tmp/snapshot.tgz" -C "$root" \
   --null -T <(git -C "$root" ls-files -z --cached --others --exclude-standard) .git
-curl -sf \
+curl -sS --fail-with-body \
   -F 'params={"language":"typescript","base":"main"}' \
   -F "snapshot=@$tmp/snapshot.tgz;type=application/gzip" \
   "$EXOCORTEX_ENDPOINT/review"
@@ -114,7 +114,7 @@ JSON を直接 POST する。レスポンスは NDJSON のストリームで返�
 バッファされないよう `curl` には `-N` を付ける。
 
 ```bash
-curl -Nsf -H 'Content-Type: application/json' \
+curl -NsS --fail-with-body -H 'Content-Type: application/json' \
   -d '{"text":"こんにちは","from":"ja","to":"en"}' \
   "$EXOCORTEX_ENDPOINT/translate"
 # {"delta":"Hello"}
@@ -160,6 +160,10 @@ JSON が壊れるのは常に末尾なので、末尾を捨てると原因が見
 既定では無効で、`thinking` はモデルが思考テキストを返したときだけ現れる。
 
 エラーの body は `{ "error": string, "message": string }` である。
+
+正規レシピが `--fail-with-body` を使うのは、この body を残したまま非ゼロ終了させるためである。
+`-f` だけでは body が捨てられ、`-s` がエラーメッセージまで抑えるため、`-sf` の組み合わせでは失敗の理由が何も残らない。
+どのステータスが返ったのかも分からなくなり、上表を引く手がかりが消える。
 
 `/translate` は、ストリームを開始する前の失敗（到達不可・即時のモデル不在など）は上表と同じ
 HTTP ステータス + JSON body で返す。開始後の失敗は同じ `error` slug を `error` 行として NDJSON に流す。
