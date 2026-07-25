@@ -39,7 +39,7 @@ VRAM 16GB クラスの GPU を搭載したゲーミング PC をローカル LLM
   - [無人実行のための自動切り替え](evals/README.md#無人実行のための自動切り替え)
   - [途中で落ちたとき](evals/README.md#途中で落ちたとき)
   - [レポートの生成](evals/README.md#レポートの生成)
-  - [盲検の採点](evals/README.md#盲検の採点)
+  - [出力元を伏せて採点する](evals/README.md#出力元を伏せて採点する)
   - [case を追加する](evals/README.md#case-を追加する)
   - [現在の case](evals/README.md#現在の-case)
   - [サイズ case で測るもの](evals/README.md#サイズ-case-で測るもの)

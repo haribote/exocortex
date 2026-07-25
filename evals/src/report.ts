@@ -284,7 +284,7 @@ export function renderSummary(records: readonly RunRecord[]): string {
     }),
     '',
     '判定は自動指標だけでは決まりません。',
-    'true positive と false positive の別は `adjudication.md` を盲検で採点してから判断してください。',
+    'true positive と false positive の別は、モデル名を伏せた `adjudication.md` を採点してから判断してください。',
     '',
   ].join('\n')
 }
