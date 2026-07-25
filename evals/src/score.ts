@@ -1,5 +1,6 @@
 import {
   MAX_CONTEXT_TOKENS,
+  normalizeQuote,
   type ReviewComment,
   type Severity,
 } from '@exocortex/contract'
@@ -22,11 +23,6 @@ const SEVERITY_RANK: Record<Severity, number> = {
   minor: 1,
   major: 2,
   critical: 3,
-}
-
-// TODO: replace with normalizeQuote from @exocortex/contract once feat/review-model-knobs lands.
-export function normalizeQuote(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
 }
 
 export interface ScoreTarget {

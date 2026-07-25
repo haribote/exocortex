@@ -1,8 +1,12 @@
-import type { ReviewComment, ReviewResponse } from '@exocortex/contract'
+import {
+  normalizeQuote,
+  type ReviewComment,
+  type ReviewResponse,
+} from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
 import type { ResolvedFinding } from './cases.ts'
 import type { ReviewOutcome } from './client.ts'
-import { normalizeQuote, type ScoreTarget, scoreOutcome } from './score.ts'
+import { type ScoreTarget, scoreOutcome } from './score.ts'
 
 const cart = [
   'export function shippingFee(amount: number): number {',
