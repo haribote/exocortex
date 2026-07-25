@@ -1,0 +1,20 @@
+export const MONTHLY_TOKEN_QUOTA = 2_000_000
+export const USAGE_TTL_SECONDS = 60 * 60 * 24 * 40
+
+export interface QuotaStatus {
+  used: number
+  remaining: number
+  exceeded: boolean
+}
+
+export function usageKey(tenantId: string, month: string): string {
+  return `usage:${tenantId}:${month}`
+}
+
+export function quotaStatus(used: number): QuotaStatus {
+  return {
+    used,
+    remaining: Math.max(MONTHLY_TOKEN_QUOTA - used, 0),
+    exceeded: used >= MONTHLY_TOKEN_QUOTA,
+  }
+}

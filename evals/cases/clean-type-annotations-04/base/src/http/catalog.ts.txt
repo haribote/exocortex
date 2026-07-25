@@ -1,0 +1,21 @@
+import { clampPageSize, toOffset } from './pagination.ts'
+
+export interface Product {
+  id: string
+  name: string
+}
+
+export function selectPage(
+  products: readonly Product[],
+  page: number,
+  requestedSize: number,
+) {
+  const pageSize = clampPageSize(requestedSize)
+  const offset = toOffset(page, pageSize)
+
+  return {
+    items: products.slice(offset, offset + pageSize),
+    pageSize,
+    total: products.length,
+  }
+}

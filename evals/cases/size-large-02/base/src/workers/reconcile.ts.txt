@@ -1,0 +1,121 @@
+import { loadCatalog } from '../pricing/catalog.js'
+import { isPricingError, PricingError } from '../pricing/errors.js'
+import { buildQuote } from '../pricing/quote.js'
+import type { CurrencyCode, Quote, QuoteRequest } from '../pricing/types.js'
+import { priceSubscription, type Subscription } from '../services/subscription.js'
+import { pricingConfig } from '../config/pricing.js'
+import { error as logError, info } from '../observability/log.js'
+
+export interface DriftRecord {
+  customerId: string
+  sku: string
+  previousTotalMinor: number
+  currentTotalMinor: number
+  driftMinor: number
+}
+
+export interface ReconcileCursor {
+  offset: number
+  batchSize: number
+}
+
+export interface ReconcileSummary {
+  scanned: number
+  drifted: number
+  failed: number
+  cursor: ReconcileCursor
+}
+
+interface YesterdayQuote {
+  request: QuoteRequest
+  quote: Quote
+}
+
+const MAX_ATTEMPTS = 3
+
+function repriceWithRetry(request: QuoteRequest, currency: CurrencyCode): Quote {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const catalog = loadCatalog(currency, pricingConfig.catalogRevision)
+      return buildQuote(request, catalog)
+    } catch (caught) {
+      lastError = caught
+      if (isPricingError(caught) && caught.code !== 'unknown_sku') break
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new PricingError('reconcile_failed', 'unable to reprice after retries')
+}
+
+export function reconcileBatch(
+  quotes: readonly YesterdayQuote[],
+  currency: CurrencyCode,
+  cursor: ReconcileCursor,
+): { drift: DriftRecord[]; summary: ReconcileSummary } {
+  const batch = quotes.slice(cursor.offset, cursor.offset + cursor.batchSize)
+  const drift: DriftRecord[] = []
+  let failed = 0
+
+  for (const { request, quote } of batch) {
+    try {
+      const repriced = repriceWithRetry(request, currency)
+      if (repriced.totalMinor !== quote.totalMinor) {
+        drift.push({
+          customerId: request.customerId,
+          sku: request.sku,
+          previousTotalMinor: quote.totalMinor,
+          currentTotalMinor: repriced.totalMinor,
+          driftMinor: repriced.totalMinor - quote.totalMinor,
+        })
+      }
+    } catch (caught) {
+      failed += 1
+      logError('reconcile.reprice_failed', {
+        customerId: request.customerId,
+        sku: request.sku,
+        message: caught instanceof Error ? caught.message : 'unknown',
+      })
+    }
+  }
+
+  const summary: ReconcileSummary = {
+    scanned: batch.length,
+    drifted: drift.length,
+    failed,
+    cursor: { offset: cursor.offset + batch.length, batchSize: cursor.batchSize },
+  }
+
+  info('reconcile.batch_complete', {
+    scanned: summary.scanned,
+    drifted: summary.drifted,
+    failed: summary.failed,
+    nextOffset: summary.cursor.offset,
+  })
+
+  return { drift, summary }
+}
+
+export function driftForSubscription(
+  subscription: Subscription,
+  previousQuotes: readonly Quote[],
+  at: string,
+): DriftRecord[] {
+  const current = priceSubscription(subscription, at)
+  const drift: DriftRecord[] = []
+
+  current.quotes.forEach((quote, index) => {
+    const previous = previousQuotes[index]
+    if (!previous || previous.totalMinor === quote.totalMinor) return
+    drift.push({
+      customerId: subscription.customerId,
+      sku: quote.lines[0]?.sku ?? 'unknown',
+      previousTotalMinor: previous.totalMinor,
+      currentTotalMinor: quote.totalMinor,
+      driftMinor: quote.totalMinor - previous.totalMinor,
+    })
+  })
+
+  return drift
+}

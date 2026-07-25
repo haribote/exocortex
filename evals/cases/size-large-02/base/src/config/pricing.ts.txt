@@ -1,0 +1,47 @@
+import type { CurrencyCode, Region } from '../pricing/types.js'
+
+export interface PricingConfig {
+  catalogRevision: string
+  defaultCurrency: CurrencyCode
+  defaultRegion: Region
+  maxLineQuantity: number
+  quoteTtlSeconds: number
+  tierDiscountsEnabled: boolean
+}
+
+const DEFAULTS: PricingConfig = {
+  catalogRevision: '2026-05-01',
+  defaultCurrency: 'USD',
+  defaultRegion: 'US',
+  maxLineQuantity: 20000,
+  quoteTtlSeconds: 900,
+  tierDiscountsEnabled: true,
+}
+
+function readNumber(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (raw === undefined) return fallback
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function readFlag(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]
+  if (raw === undefined) return fallback
+  return raw === '1' || raw === 'true'
+}
+
+export function loadPricingConfig(): PricingConfig {
+  return {
+    ...DEFAULTS,
+    catalogRevision: process.env.CATALOG_REVISION ?? DEFAULTS.catalogRevision,
+    maxLineQuantity: readNumber('MAX_LINE_QUANTITY', DEFAULTS.maxLineQuantity),
+    quoteTtlSeconds: readNumber('QUOTE_TTL_SECONDS', DEFAULTS.quoteTtlSeconds),
+    tierDiscountsEnabled: readFlag(
+      'TIER_DISCOUNTS_ENABLED',
+      DEFAULTS.tierDiscountsEnabled,
+    ),
+  }
+}
+
+export const pricingConfig: PricingConfig = loadPricingConfig()

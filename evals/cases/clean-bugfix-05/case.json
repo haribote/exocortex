@@ -1,0 +1,8 @@
+{
+  "id": "clean-bugfix-05",
+  "category": "clean",
+  "mode": "worktree",
+  "expected": [],
+  "origin": "false positive の測定用。比較関数なしの Array#sort が辞書順に並べていたバグを、コピーしてから数値比較で並べる形に直した差分を模した。回帰テストも足してある",
+  "clean": true
+}

@@ -1,0 +1,17 @@
+{
+  "id": "concurrency-floating-promise-02",
+  "category": "concurrency",
+  "mode": "staged",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/replay.ts",
+      "anchor": "events.forEach(async (event) => {",
+      "span": 1,
+      "summary": "handler が async になったのに forEach のままなので、コールバックが返す Promise が捨てられる。replay は publish の完了前に applied が空のまま返り、イベントの適用順も保証されない",
+      "severityFloor": "critical"
+    }
+  ],
+  "origin": "合成。実在する公開コミットは根拠にしていない。同期の handler を async 化したときに forEach のコールバックにだけ async を付けて await を落とす、という実務でよくある型をモデル化した",
+  "clean": false
+}

@@ -249,14 +249,40 @@ anchor は head 適用後のファイル中に一意に現れる 1 行です。
 
 ## 現在の case
 
+全 20 件です。
+バグあり 12 件が検出率の母数、clean 6 件が false positive の母数、サイズ 2 件は母数に入れずレイテンシと切り捨ての観測に使います。
+
 | id | category | mode | 仕込んだもの |
 | --- | --- | --- | --- |
 | `logic-inversion-01` | logic | base | 送料無料の判定で比較が反転している |
+| `logic-boundary-02` | logic | base | 価格ティアの範囲判定で下限だけが排他になっている |
 | `dataflow-stale-value-01` | dataflow | worktree | 割引後ではなく割引前の金額を換算に渡している |
+| `dataflow-lost-update-02` | dataflow | worktree | 純粋化の際に書き込みだけコピー先に移り、読み出しが元の入力に残っている |
 | `convention-nondeterminism-01` | convention | staged | `CLAUDE.md` が禁じた `src/sim/` での `Math.random()` |
-| `clean-refactor-01` | clean | base | バグなし。false positive の測定用 |
+| `convention-forbidden-api-02` | convention | base | 注入された `Clock` を使う規約に反して `Date.now()` を直接呼ぶ |
+| `error-swallowed-01` | error-handling | staged | 送信失敗を握り潰したまま outbox から削除している |
+| `error-unhandled-rejection-02` | error-handling | base | 新しい async 呼び出しにだけ `await` が無い |
+| `concurrency-race-01` | concurrency | worktree | `await` を挟んだ read-modify-write で更新が失われる |
+| `concurrency-floating-promise-02` | concurrency | staged | `forEach` のコールバックだけ `async` になり順序保証が壊れる |
+| `resource-listener-leak-01` | resource | base | 再接続のたびに heartbeat の `setInterval` が積み上がる |
+| `resource-unclosed-handle-02` | resource | worktree | 早期 return の経路だけロックが解放されない |
+| `clean-refactor-01` | clean | base | バグなし。挙動不変のリファクタ |
+| `clean-rename-02` | clean | base | バグなし。識別子の機械的な改名 |
+| `clean-tests-added-03` | clean | staged | バグなし。テストの追加のみ |
+| `clean-type-annotations-04` | clean | base | バグなし。型注釈の明示化 |
+| `clean-bugfix-05` | clean | worktree | バグなし。実際のバグを正しく修正した差分 |
+| `clean-dependency-update-06` | clean | base | バグなし。依存更新に伴う正しい追随 |
+| `size-small-01` | size | base | minor units の二重変換（約 8,000 tokens の context） |
+| `size-large-02` | size | base | 同一のバグ（約 23,600 tokens の context） |
 
-前の 3 件は、commit `a9d124c` で `qwen3:14b` への切り替えを判断したときに使った 3 問を復元したものです。
+`logic-inversion-01` と `dataflow-stale-value-01` と `convention-nondeterminism-01` の 3 件は、commit `a9d124c` で `qwen3:14b` への切り替えを判断したときに使った 3 問を復元したものです。
+過去の判断との地続きを確保するために置いてあります。
+
+`clean` の 6 件には、素の style nit を残さないよう注意を払っています。
+指摘されうる点が混ざっていると、それはモデルの誤検出ではなく fixture の欠陥として false positive に計上されてしまうためです。
+
+バグあり 12 件はいずれも合成で、実在の公開コミットを出典にはしていません。
+各 `case.json` の `origin` に、何を模したものかと合成である旨を明記してあります。
 
 ## サイズ case で測るもの
 

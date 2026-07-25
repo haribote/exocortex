@@ -1,0 +1,62 @@
+import { entryFor } from './catalog.js'
+import { InvalidQuoteError } from './errors.js'
+import { toMinorUnits } from './money.js'
+import { roundHalfUp } from './rounding.js'
+import { taxRateFor } from './tax.js'
+import { applyTier } from './tier.js'
+import type { Catalog, Quote, QuoteLine, QuoteRequest } from './types.js'
+import { pricingConfig } from '../config/pricing.js'
+import { debug } from '../observability/log.js'
+
+function validate(request: QuoteRequest, catalog: Catalog): void {
+  if (!Number.isInteger(request.quantity) || request.quantity < 1) {
+    throw new InvalidQuoteError(`quantity must be a positive integer`)
+  }
+  if (request.quantity > pricingConfig.maxLineQuantity) {
+    throw new InvalidQuoteError(`quantity exceeds ${pricingConfig.maxLineQuantity}`)
+  }
+  if (catalog.entries.length === 0) {
+    throw new InvalidQuoteError(`catalog ${catalog.revision} is empty`)
+  }
+}
+
+export function buildQuote(request: QuoteRequest, catalog: Catalog): Quote {
+  validate(request, catalog)
+
+  const entry = entryFor(catalog, request.sku)
+  const unitMinor = toMinorUnits(entry.unitAmount, catalog.currency)
+  const subtotal = unitMinor * request.quantity
+  const discounted = applyTier(subtotal, request.tier, request.quantity)
+  const taxable = toMinorUnits(discounted, catalog.currency)
+  const tax = roundHalfUp(taxable * taxRateFor(request.region))
+
+  const line: QuoteLine = {
+    sku: entry.sku,
+    quantity: request.quantity,
+    unitMinor,
+    amountMinor: subtotal,
+  }
+
+  debug('quote.built', {
+    customerId: request.customerId,
+    sku: entry.sku,
+    subtotalMinor: subtotal,
+    discountedMinor: discounted,
+  })
+
+  return {
+    customerId: request.customerId,
+    currency: catalog.currency,
+    catalogRevision: catalog.revision,
+    lines: [line],
+    subtotalMinor: subtotal,
+    discountMinor: subtotal - discounted,
+    taxMinor: tax,
+    totalMinor: discounted + tax,
+  }
+}
+
+export function quoteExpiresAt(request: QuoteRequest): string {
+  const issued = new Date(request.requestedAt).getTime()
+  return new Date(issued + pricingConfig.quoteTtlSeconds * 1000).toISOString()
+}

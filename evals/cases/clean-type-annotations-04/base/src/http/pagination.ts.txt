@@ -1,0 +1,11 @@
+const DEFAULT_PAGE_SIZE = 20
+const MAX_PAGE_SIZE = 100
+
+export function clampPageSize(requested: number) {
+  if (!Number.isFinite(requested)) return DEFAULT_PAGE_SIZE
+  return Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
+}
+
+export function toOffset(page: number, pageSize: number) {
+  return (Math.max(Math.trunc(page), 1) - 1) * pageSize
+}

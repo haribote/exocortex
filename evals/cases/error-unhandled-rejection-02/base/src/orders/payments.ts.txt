@@ -1,0 +1,19 @@
+import type { Order } from './types.js'
+
+export interface Payment {
+  id: string
+  capturedAt: string
+}
+
+export async function capturePayment(order: Order): Promise<Payment> {
+  const response = await fetch('/api/payments', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ orderId: order.id, amount: order.total }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`payment capture failed: ${response.status}`)
+  }
+  return (await response.json()) as Payment
+}

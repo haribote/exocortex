@@ -1,0 +1,8 @@
+export interface Lock {
+  key: string
+  release(): Promise<void>
+}
+
+export interface LockStore {
+  acquire(key: string, ttlMs: number): Promise<Lock>
+}

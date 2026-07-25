@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { loadCatalog } from '../../src/pricing/catalog.js'
+import { buildQuote } from '../../src/pricing/quote.js'
+import type { QuoteRequest } from '../../src/pricing/types.js'
+import {
+  buildInvoice,
+  InvoiceTotalMismatchError,
+  isSettled,
+  prorateUpgrade,
+  transition,
+} from '../../src/services/invoice.js'
+import type { Subscription } from '../../src/services/subscription.js'
+
+const CATALOG = loadCatalog('USD', '2026-05-01')
+
+function subscription(overrides: Partial<Subscription> = {}): Subscription {
+  return {
+    id: 'sub_1',
+    customerId: 'cust_1',
+    tier: 'growth',
+    region: 'US',
+    currency: 'USD',
+    lines: [{ sku: 'seat-standard', quantity: 30 }],
+    startedAt: '2026-06-01T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('buildInvoice', () => {
+  it('sums line amounts to the header subtotal', () => {
+    const invoice = buildInvoice(subscription(), '2026-07-01', '2026-07-31')
+    const summed = invoice.lines.reduce((total, line) => total + line.amountMinor, 0)
+    assert.equal(summed, invoice.subtotalMinor)
+  })
+
+  it('starts as a draft', () => {
+    const invoice = buildInvoice(subscription(), '2026-07-01', '2026-07-31')
+    assert.equal(invoice.status, 'draft')
+  })
+
+  it('keeps line amounts in minor units', () => {
+    const invoice = buildInvoice(subscription(), '2026-07-01', '2026-07-31')
+    const line = invoice.lines[0]
+    assert.equal(line.unitMinor, 1800)
+    assert.equal(line.amountMinor, 1800 * 30)
+  })
+})
+
+describe('transition', () => {
+  it('moves an invoice to a new status without mutating the original', () => {
+    const invoice = buildInvoice(subscription(), '2026-07-01', '2026-07-31')
+    const opened = transition(invoice, 'open')
+    assert.equal(opened.status, 'open')
+    assert.equal(invoice.status, 'draft')
+  })
+})
+
+describe('isSettled', () => {
+  it('treats paid and void as settled', () => {
+    const invoice = buildInvoice(subscription(), '2026-07-01', '2026-07-31')
+    assert.equal(isSettled(transition(invoice, 'paid')), true)
+    assert.equal(isSettled(transition(invoice, 'void')), true)
+    assert.equal(isSettled(invoice), false)
+  })
+})
+
+describe('prorateUpgrade', () => {
+  const request: QuoteRequest = {
+    customerId: 'cust_1',
+    sku: 'seat-standard',
+    quantity: 10,
+    tier: 'growth',
+    region: 'US',
+    requestedAt: '2026-07-16T00:00:00.000Z',
+  }
+
+  it('scales the amount by the remaining fraction of the period, and stamps validUntil', () => {
+    const line = prorateUpgrade(
+      request,
+      CATALOG,
+      '2026-07-01T00:00:00.000Z',
+      '2026-07-31T00:00:00.000Z',
+    )
+    const fullQuote = buildQuote(request, CATALOG)
+    assert.ok(line.amountMinor > 0)
+    assert.ok(line.amountMinor < fullQuote.lines[0].amountMinor)
+    assert.equal(typeof line.validUntil, 'string')
+  })
+})
+
+describe('InvoiceTotalMismatchError', () => {
+  it('carries the pricing error code', () => {
+    const error = new InvoiceTotalMismatchError(1000, 900)
+    assert.equal(error.code, 'invoice_total_mismatch')
+    assert.equal(error.name, 'InvoiceTotalMismatchError')
+  })
+})

@@ -1,0 +1,99 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { loadCatalog } from '../../src/pricing/catalog.js'
+import { buildQuote, quoteExpiresAt } from '../../src/pricing/quote.js'
+import type { QuoteRequest } from '../../src/pricing/types.js'
+
+const catalog = loadCatalog('USD', '2026-05-01')
+
+function requestFor(overrides: Partial<QuoteRequest> = {}): QuoteRequest {
+  return {
+    customerId: 'cust-1',
+    sku: 'seat-standard',
+    quantity: 3,
+    tier: 'growth',
+    region: 'US',
+    requestedAt: '2026-06-01T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('buildQuote validation', () => {
+  it('rejects a zero quantity', () => {
+    assert.throws(() => buildQuote(requestFor({ quantity: 0 }), catalog))
+  })
+
+  it('rejects a fractional quantity', () => {
+    assert.throws(() => buildQuote(requestFor({ quantity: 2.5 }), catalog))
+  })
+
+  it('rejects a quantity over the configured maximum', () => {
+    assert.throws(() => buildQuote(requestFor({ quantity: 50000 }), catalog))
+  })
+})
+
+describe('buildQuote catalog lookup', () => {
+  it('rejects a sku with no catalog entry', () => {
+    assert.throws(() =>
+      buildQuote(requestFor({ sku: 'does-not-exist' }), catalog),
+    )
+  })
+
+  it('rejects a retired sku', () => {
+    assert.throws(() => buildQuote(requestFor({ sku: 'seat-legacy' }), catalog))
+  })
+})
+
+describe('buildQuote line shape', () => {
+  it('scales the catalog unit amount into minor units', () => {
+    const quote = buildQuote(requestFor({ quantity: 3 }), catalog)
+    assert.equal(quote.lines.length, 1)
+    assert.equal(quote.lines[0].unitMinor, 1800)
+    assert.equal(quote.lines[0].amountMinor, 5400)
+  })
+
+  it('carries the sku and requested quantity onto the line', () => {
+    const quote = buildQuote(requestFor({ sku: 'storage-gb', quantity: 7 }), catalog)
+    assert.equal(quote.lines[0].sku, 'storage-gb')
+    assert.equal(quote.lines[0].quantity, 7)
+  })
+
+  it('leaves the subtotal undiscounted', () => {
+    const quote = buildQuote(requestFor({ quantity: 3 }), catalog)
+    assert.equal(quote.subtotalMinor, 5400)
+    assert.equal(quote.discountMinor, 0)
+  })
+})
+
+describe('buildQuote tax line', () => {
+  it('applies the us sales tax rate to the subtotal', () => {
+    const quote = buildQuote(requestFor({ region: 'US', quantity: 3 }), catalog)
+    assert.equal(quote.taxMinor, 392)
+    assert.equal(quote.totalMinor, quote.subtotalMinor + quote.taxMinor)
+  })
+
+  it('applies the jp consumption tax rate to the subtotal', () => {
+    const jpCatalog = loadCatalog('JPY', '2026-05-01')
+    const quote = buildQuote(requestFor({ region: 'JP', quantity: 3 }), jpCatalog)
+    assert.equal(quote.taxMinor, 5)
+    assert.equal(quote.totalMinor, 59)
+  })
+
+  it('applies the eu vat rate to the subtotal', () => {
+    const quote = buildQuote(requestFor({ region: 'EU', quantity: 3 }), catalog)
+    assert.equal(quote.taxMinor, 1134)
+  })
+})
+
+describe('quoteExpiresAt', () => {
+  it('adds the configured ttl to the requested time', () => {
+    const request = requestFor({ requestedAt: '2026-06-01T00:00:00.000Z' })
+    assert.equal(quoteExpiresAt(request), '2026-06-01T00:15:00.000Z')
+  })
+
+  it('is independent of the catalog or the line priced', () => {
+    const withoutLine = requestFor({ sku: 'storage-gb', quantity: 900 })
+    const withLine = requestFor({ sku: 'seat-standard', quantity: 1 })
+    assert.equal(quoteExpiresAt(withoutLine), quoteExpiresAt(withLine))
+  })
+})

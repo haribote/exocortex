@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { applyTier, nextTier, qualifies, ruleFor } from '../../src/pricing/tier.js'
+
+describe('ruleFor', () => {
+  it('returns the rule that matches the tier id', () => {
+    assert.equal(ruleFor('growth').percentOff, 12)
+    assert.equal(ruleFor('free').percentOff, 0)
+  })
+})
+
+describe('qualifies', () => {
+  it('requires the tier minimum quantity', () => {
+    assert.equal(qualifies('growth', 24), false)
+    assert.equal(qualifies('growth', 25), true)
+  })
+
+  it('always admits the free tier', () => {
+    assert.equal(qualifies('free', 0), true)
+  })
+})
+
+describe('applyTier', () => {
+  it('keeps the amount in minor units', () => {
+    assert.equal(applyTier(10000, 'growth', 25), 8800)
+  })
+
+  it('leaves the subtotal alone below the minimum quantity', () => {
+    assert.equal(applyTier(10000, 'scale', 10), 10000)
+  })
+
+  it('rounds the discount to whole minor units', () => {
+    assert.equal(applyTier(333, 'starter', 5), 316)
+  })
+})
+
+describe('nextTier', () => {
+  it('walks up the ladder', () => {
+    assert.equal(nextTier('starter'), 'growth')
+  })
+
+  it('has nothing above the top tier', () => {
+    assert.equal(nextTier('scale'), undefined)
+  })
+})

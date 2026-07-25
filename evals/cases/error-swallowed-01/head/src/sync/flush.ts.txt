@@ -1,0 +1,25 @@
+import { logger } from './logger.js'
+import type { Outbox } from './outbox.js'
+import { uploadEntry } from './uploader.js'
+
+export interface FlushResult {
+  uploaded: number
+  pending: number
+}
+
+export async function flushOutbox(outbox: Outbox): Promise<FlushResult> {
+  const entries = await outbox.list()
+  let uploaded = 0
+
+  for (const entry of entries) {
+    try {
+      await uploadEntry(entry)
+    } catch (cause) {
+      logger.warn('outbox upload failed', { entryId: entry.id, cause })
+    }
+    await outbox.remove(entry.id)
+    uploaded += 1
+  }
+
+  return { uploaded, pending: entries.length - uploaded }
+}

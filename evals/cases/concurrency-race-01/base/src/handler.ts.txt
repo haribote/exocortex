@@ -1,0 +1,29 @@
+import type { UsageEvent, UsageMeter } from './meter.js'
+
+export interface CompletionRequest {
+  tenantId: string
+  endpoint: string
+  promptTokens: number
+  completionTokens: number
+}
+
+export function billingMonth(now: Date): string {
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
+  return `${now.getUTCFullYear()}-${month}`
+}
+
+export async function onCompletion(
+  meter: UsageMeter,
+  request: CompletionRequest,
+  now: Date,
+): Promise<{ status: number }> {
+  const event: UsageEvent = {
+    tenantId: request.tenantId,
+    month: billingMonth(now),
+    endpoint: request.endpoint,
+    tokens: request.promptTokens + request.completionTokens,
+  }
+
+  const quota = await meter.record(event)
+  return { status: quota.exceeded ? 429 : 200 }
+}

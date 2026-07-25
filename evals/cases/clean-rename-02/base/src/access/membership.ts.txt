@@ -1,0 +1,20 @@
+export type Role = 'owner' | 'editor' | 'viewer'
+
+export interface OrgMember {
+  orgId: string
+  userId: string
+  role: Role
+}
+
+const EDITABLE_ROLES: readonly Role[] = ['owner', 'editor']
+
+export function listOrgMembers(
+  members: readonly OrgMember[],
+  orgId: string,
+): OrgMember[] {
+  return members.filter((member) => member.orgId === orgId)
+}
+
+export function canEdit(member: OrgMember): boolean {
+  return EDITABLE_ROLES.includes(member.role)
+}

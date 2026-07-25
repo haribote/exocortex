@@ -1,0 +1,12 @@
+export interface StoredDocument {
+  id: string
+  body: string
+}
+
+export interface DocumentStore {
+  listDocuments(): Promise<StoredDocument[]>
+  putIndexEntry(id: string, tokens: readonly string[]): Promise<void>
+  readContentRevision(): Promise<number>
+  readIndexRevision(): Promise<number>
+  writeIndexRevision(revision: number): Promise<void>
+}

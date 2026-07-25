@@ -1,0 +1,17 @@
+{
+  "id": "size-large-02",
+  "category": "size",
+  "mode": "base",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/pricing/quote.ts",
+      "anchor": "const taxable = toMinorUnits(discounted, catalog.currency)",
+      "span": 1,
+      "summary": "applyTier が返す値は既に minor units なのに toMinorUnits をもう一度通しており、USD/EUR で課税対象額が 100 倍になる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "入力サイズの対照ペアの大きい側。size-small-01 と同一のバグ・同一の diff を持ち、周辺 context を MAX_INPUT_TOKENS の直下まで増やしてある",
+  "clean": false
+}

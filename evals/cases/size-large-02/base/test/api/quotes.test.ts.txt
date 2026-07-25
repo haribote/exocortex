@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { parseQuoteRequest, postQuote } from '../../src/api/routes/quotes.js'
+import type { HttpRequest } from '../../src/api/routes/quotes.js'
+import { quoteExpiresAt } from '../../src/pricing/quote.js'
+
+function requestWith(
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): HttpRequest {
+  return {
+    body: {
+      customerId: 'cust-1',
+      sku: 'seat-standard',
+      quantity: 3,
+      tier: 'growth',
+      region: 'US',
+      ...body,
+    },
+    headers,
+  }
+}
+
+describe('parseQuoteRequest', () => {
+  it('rejects an unsupported region', () => {
+    assert.throws(() => parseQuoteRequest(requestWith({ region: 'MARS' })), TypeError)
+  })
+
+  it('rejects an unsupported tier', () => {
+    assert.throws(() => parseQuoteRequest(requestWith({ tier: 'platinum' })), TypeError)
+  })
+
+  it('requires a customerId', () => {
+    assert.throws(() => parseQuoteRequest(requestWith({ customerId: '' })), TypeError)
+  })
+
+  it('requires a numeric quantity', () => {
+    assert.throws(() => parseQuoteRequest(requestWith({ quantity: '3' })), TypeError)
+  })
+
+  it('requires a sku', () => {
+    assert.throws(() => parseQuoteRequest(requestWith({ sku: '' })), TypeError)
+  })
+
+  it('falls back to the current time when x-request-time is absent', () => {
+    const before = new Date().toISOString()
+    const parsed = parseQuoteRequest(requestWith({}))
+    assert.ok(parsed.requestedAt >= before)
+  })
+
+  it('uses the x-request-time header when present', () => {
+    const parsed = parseQuoteRequest(
+      requestWith({}, { 'x-request-time': '2026-06-01T00:00:00.000Z' }),
+    )
+    assert.equal(parsed.requestedAt, '2026-06-01T00:00:00.000Z')
+  })
+})
+
+describe('postQuote', () => {
+  it('returns a 200 with the quote, expiry, and display totals', () => {
+    const request = requestWith({}, { 'x-request-time': '2026-06-01T00:00:00.000Z' })
+    const response = postQuote(request)
+
+    assert.equal(response.status, 200)
+    const body = response.body as { quote: unknown; expiresAt: string; display: Record<string, string> }
+    assert.ok(body.quote)
+    assert.equal(body.expiresAt, quoteExpiresAt(parseQuoteRequest(request)))
+    assert.equal(typeof body.display.subtotal, 'string')
+    assert.equal(typeof body.display.total, 'string')
+  })
+
+  it('maps an unknown sku to a 404', () => {
+    const response = postQuote(requestWith({ sku: 'does-not-exist' }))
+    assert.equal(response.status, 404)
+  })
+
+  it('maps a retired sku to a 400', () => {
+    const response = postQuote(requestWith({ sku: 'seat-legacy' }))
+    assert.equal(response.status, 400)
+  })
+
+  it('maps a quantity over the configured maximum to a 400', () => {
+    const response = postQuote(requestWith({ quantity: 50000 }))
+    assert.equal(response.status, 400)
+  })
+
+  it('maps a malformed request to a 500', () => {
+    const response = postQuote(requestWith({ region: 'MARS' }))
+    assert.equal(response.status, 500)
+    assert.equal(typeof response.body.error, 'string')
+  })
+})

@@ -1,0 +1,46 @@
+export class PricingError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'PricingError'
+    this.code = code
+  }
+}
+
+export class InvalidQuoteError extends PricingError {
+  constructor(message: string) {
+    super('invalid_quote', message)
+    this.name = 'InvalidQuoteError'
+  }
+}
+
+export class UnknownSkuError extends PricingError {
+  readonly sku: string
+
+  constructor(sku: string) {
+    super('unknown_sku', `no catalog entry for sku: ${sku}`)
+    this.name = 'UnknownSkuError'
+    this.sku = sku
+  }
+}
+
+export class InactiveSkuError extends PricingError {
+  readonly sku: string
+
+  constructor(sku: string) {
+    super('inactive_sku', `catalog entry is retired: ${sku}`)
+    this.name = 'InactiveSkuError'
+    this.sku = sku
+  }
+}
+
+export function isPricingError(error: unknown): error is PricingError {
+  return error instanceof PricingError
+}
+
+export function statusFor(error: unknown): number {
+  if (!isPricingError(error)) return 500
+  if (error.code === 'unknown_sku') return 404
+  return 400
+}

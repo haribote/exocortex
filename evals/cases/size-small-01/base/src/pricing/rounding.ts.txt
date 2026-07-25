@@ -1,0 +1,30 @@
+export type RoundingMode = 'half-up' | 'half-even' | 'down'
+
+export function roundHalfUp(value: number): number {
+  return Math.floor(value + 0.5)
+}
+
+export function roundHalfEven(value: number): number {
+  const floor = Math.floor(value)
+  const diff = value - floor
+  if (diff > 0.5) return floor + 1
+  if (diff < 0.5) return floor
+  return floor % 2 === 0 ? floor : floor + 1
+}
+
+export function roundDown(value: number): number {
+  return Math.floor(value)
+}
+
+export function round(value: number, mode: RoundingMode): number {
+  if (mode === 'half-even') return roundHalfEven(value)
+  if (mode === 'down') return roundDown(value)
+  return roundHalfUp(value)
+}
+
+export function roundToStep(value: number, step: number): number {
+  if (step <= 0) {
+    throw new RangeError(`step must be positive: ${step}`)
+  }
+  return roundHalfUp(value / step) * step
+}

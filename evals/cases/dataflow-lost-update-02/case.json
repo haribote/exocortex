@@ -1,0 +1,17 @@
+{
+  "id": "dataflow-lost-update-02",
+  "category": "dataflow",
+  "mode": "worktree",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/inventory.ts",
+      "anchor": "const current = levels.get(movement.sku) ?? 0",
+      "span": 1,
+      "summary": "累積先が next に変わったのに読み出しが引数の levels のままで、同じ sku に複数の movement があると最後の 1 件以外が失われる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。呼び出し側の Map を破壊しないよう純粋化するリファクタで、書き込みだけコピー先に移し読み出しが元の入力に残るという実務でよくある型をモデル化した",
+  "clean": false
+}

@@ -1,0 +1,8 @@
+import { type OrgMember, canEdit, listOrgMembers } from './membership.ts'
+
+export function listOrgEditors(
+  members: readonly OrgMember[],
+  orgId: string,
+): OrgMember[] {
+  return listOrgMembers(members, orgId).filter(canEdit)
+}

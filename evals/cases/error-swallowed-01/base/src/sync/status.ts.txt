@@ -1,0 +1,14 @@
+import { flushOutbox } from './flush.js'
+import { logger } from './logger.js'
+import type { Outbox } from './outbox.js'
+
+export type SyncStatus = 'synced' | 'pending'
+
+export async function syncNow(outbox: Outbox): Promise<SyncStatus> {
+  const result = await flushOutbox(outbox)
+  if (result.pending > 0) {
+    logger.warn('outbox not fully flushed', { pending: result.pending })
+    return 'pending'
+  }
+  return 'synced'
+}

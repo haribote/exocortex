@@ -1,0 +1,113 @@
+import { quoteExpiresAt } from '../pricing/quote.js'
+import { priceSubscription } from '../services/subscription.js'
+import type { Subscription, SubscriptionTotal } from '../services/subscription.js'
+
+export interface ForecastPeriod {
+  periodStart: string
+  periodEnd: string
+  arrMinor: number
+  lowMinor: number
+  highMinor: number
+}
+
+const FALLBACK_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
+
+// The quote TTL doubles as the billing period length: a quote is only good
+// until the next time the subscription is expected to be repriced.
+function periodLengthMs(subscription: Subscription, asOf: string): number {
+  const line = subscription.lines[0]
+  if (!line) return FALLBACK_PERIOD_MS
+
+  const expiresAt = quoteExpiresAt({
+    customerId: subscription.customerId,
+    sku: line.sku,
+    quantity: line.quantity,
+    tier: subscription.tier,
+    region: subscription.region,
+    requestedAt: asOf,
+  })
+
+  const lengthMs = new Date(expiresAt).getTime() - new Date(asOf).getTime()
+  return lengthMs > 0 ? lengthMs : FALLBACK_PERIOD_MS
+}
+
+function mrrMinor(total: SubscriptionTotal): number {
+  return total.totalMinor
+}
+
+function confidenceSpread(periodsOut: number): number {
+  return Math.min(0.05 + periodsOut * 0.03, 0.4)
+}
+
+function assertRate(rate: number, name: string): void {
+  if (rate < 0 || rate > 1) {
+    throw new RangeError(`${name} must be between 0 and 1: ${rate}`)
+  }
+}
+
+export function forecastArr(
+  subscriptions: readonly Subscription[],
+  asOf: string,
+  periods: number,
+  churnRate: number,
+  expansionRate: number,
+): ForecastPeriod[] {
+  if (periods < 1) {
+    throw new RangeError(`periods must be positive: ${periods}`)
+  }
+  assertRate(churnRate, 'churnRate')
+  assertRate(expansionRate, 'expansionRate')
+  if (subscriptions.length === 0) return []
+
+  const totals = subscriptions.map((subscription) =>
+    priceSubscription(subscription, asOf),
+  )
+  const lengthMs = periodLengthMs(subscriptions[0], asOf)
+
+  const result: ForecastPeriod[] = []
+  let periodStart = asOf
+  let mrr = totals.reduce((sum, total) => sum + mrrMinor(total), 0)
+
+  for (let index = 0; index < periods; index += 1) {
+    const retained = mrr * (1 - churnRate)
+    const expanded = retained * (1 + expansionRate)
+    const periodEnd = new Date(
+      new Date(periodStart).getTime() + lengthMs,
+    ).toISOString()
+    const spread = confidenceSpread(index)
+    const arrMinor = Math.round(expanded * 12)
+
+    result.push({
+      periodStart,
+      periodEnd,
+      arrMinor,
+      lowMinor: Math.round(arrMinor * (1 - spread)),
+      highMinor: Math.round(arrMinor * (1 + spread)),
+    })
+
+    mrr = expanded
+    periodStart = periodEnd
+  }
+
+  return result
+}
+
+export function arrAtHorizon(
+  forecast: readonly ForecastPeriod[],
+): ForecastPeriod | undefined {
+  return forecast[forecast.length - 1]
+}
+
+export function bandWidthMinor(period: ForecastPeriod): number {
+  return period.highMinor - period.lowMinor
+}
+
+export function blendedGrowthRate(forecast: readonly ForecastPeriod[]): number {
+  if (forecast.length < 2) return 0
+
+  const first = forecast[0].arrMinor
+  const last = forecast[forecast.length - 1].arrMinor
+  if (first === 0) return 0
+
+  return (last - first) / first / (forecast.length - 1)
+}

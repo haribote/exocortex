@@ -1,0 +1,115 @@
+import { quoteExpiresAt } from '../pricing/quote.js'
+import { priceSubscription } from '../services/subscription.js'
+import type {
+  Subscription,
+  SubscriptionLine,
+  SubscriptionTotal,
+} from '../services/subscription.js'
+
+export interface RevenueRow {
+  region: Subscription['region']
+  sku: string
+  currency: Subscription['currency']
+  subtotalMinor: number
+  discountMinor: number
+  taxMinor: number
+  totalMinor: number
+  deltaMinor: number
+}
+
+export type RevenueRollup = Map<string, RevenueRow>
+
+function rowKey(region: Subscription['region'], sku: string): string {
+  return `${region}:${sku}`
+}
+
+// A quote priced before this report's cutoff but expired before it is a
+// stale price lock, not a recognisable one, so it is excluded from the roll.
+function isPriceLocked(
+  subscription: Subscription,
+  line: SubscriptionLine,
+  asOf: string,
+): boolean {
+  const expiresAt = quoteExpiresAt({
+    customerId: subscription.customerId,
+    sku: line.sku,
+    quantity: line.quantity,
+    tier: subscription.tier,
+    region: subscription.region,
+    requestedAt: subscription.startedAt,
+  })
+  return expiresAt >= asOf
+}
+
+function addRow(
+  rollup: RevenueRollup,
+  key: string,
+  region: Subscription['region'],
+  sku: string,
+  currency: Subscription['currency'],
+  total: SubscriptionTotal['quotes'][number],
+): void {
+  const existing = rollup.get(key)
+  rollup.set(key, {
+    region,
+    sku,
+    currency,
+    subtotalMinor: (existing?.subtotalMinor ?? 0) + total.subtotalMinor,
+    discountMinor: (existing?.discountMinor ?? 0) + total.discountMinor,
+    taxMinor: (existing?.taxMinor ?? 0) + total.taxMinor,
+    totalMinor: (existing?.totalMinor ?? 0) + total.totalMinor,
+    deltaMinor: existing?.deltaMinor ?? 0,
+  })
+}
+
+export function buildRevenueRollup(
+  subscriptions: readonly Subscription[],
+  asOf: string,
+): RevenueRollup {
+  const rollup: RevenueRollup = new Map()
+
+  for (const subscription of subscriptions) {
+    const priced = priceSubscription(subscription, asOf)
+
+    priced.quotes.forEach((quote, index) => {
+      const line = subscription.lines[index]
+      if (!line || !isPriceLocked(subscription, line, asOf)) return
+
+      const sku = quote.lines[0]?.sku ?? line.sku
+      const key = rowKey(subscription.region, sku)
+      addRow(rollup, key, subscription.region, sku, subscription.currency, quote)
+    })
+  }
+
+  return rollup
+}
+
+export function withDeltas(
+  current: RevenueRollup,
+  previous: RevenueRollup,
+): RevenueRollup {
+  const merged: RevenueRollup = new Map()
+
+  for (const [key, row] of current) {
+    const prior = previous.get(key)
+    merged.set(key, {
+      ...row,
+      deltaMinor: row.totalMinor - (prior?.totalMinor ?? 0),
+    })
+  }
+
+  return merged
+}
+
+export function formatRow(row: RevenueRow): string {
+  const sign = row.deltaMinor >= 0 ? '+' : ''
+  return `${row.region}\t${row.sku}\t${row.totalMinor}${row.currency}\t${sign}${row.deltaMinor}`
+}
+
+export function totalMinorFor(rollup: RevenueRollup): number {
+  let total = 0
+  for (const row of rollup.values()) {
+    total += row.totalMinor
+  }
+  return total
+}

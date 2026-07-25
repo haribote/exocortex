@@ -1,0 +1,20 @@
+export type Role = 'owner' | 'editor' | 'viewer'
+
+export interface WorkspaceMember {
+  workspaceId: string
+  userId: string
+  role: Role
+}
+
+const EDITABLE_ROLES: readonly Role[] = ['owner', 'editor']
+
+export function listWorkspaceMembers(
+  members: readonly WorkspaceMember[],
+  workspaceId: string,
+): WorkspaceMember[] {
+  return members.filter((member) => member.workspaceId === workspaceId)
+}
+
+export function canEdit(member: WorkspaceMember): boolean {
+  return EDITABLE_ROLES.includes(member.role)
+}

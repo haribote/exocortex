@@ -1,0 +1,47 @@
+# Runbook: quote and checkout incidents
+
+Who to page, what to look at, and what to do about it when the quote path
+misbehaves. Owner: billing-platform.
+
+## Alerts
+
+| Alert | Threshold | First action |
+| --- | --- | --- |
+| `quote_5xx_rate` | > 1% over 5 min | Check `http.quote.failed` log volume |
+| `quote_latency_p99` | > 400 ms over 10 min | Check catalog revision rollout |
+| `quote_total_anomaly` | total/seat outside 3σ | **Suspect a unit mistake. See below.** |
+| `invoice_line_mismatch` | any | Invoice header total ≠ sum of lines |
+| `ledger_unbalanced` | any | Debits ≠ credits in the nightly export |
+
+## `quote_total_anomaly`
+
+This alert exists because of INC-341 and INC-352, both of which were amount
+errors that returned a well-formed 200 response. It compares the total per seat
+against the trailing distribution for the same SKU and currency.
+
+A ratio near 100 or near 0.01 is almost always a minor-unit mistake, not a
+pricing change. The conversion rule is in ADR 0009 and the pipeline order that
+`src/pricing/quote.ts` implements is in `docs/pricing.md`.
+
+1. Pull one affected quote from the `quote.built` structured log and compare it
+   against the same request replayed through the CLI.
+2. Compare the same request against the previous catalog revision. If both
+   revisions agree, the catalog is not the cause.
+
+**Mitigation.** Set `TIER_DISCOUNTS_ENABLED=0` to take the discount stage out of
+the pipeline. The stage becomes a pass-through and quotes revert to list
+pricing, which buys time and rules that path in or out.
+
+**Do not** reprice historical invoices from the fixed code without a backfill
+plan. Invoices in `open` or `paid` state are immutable; corrections go out as
+credit notes.
+
+## Replaying a quote
+
+```
+node dist/cli/quote-cli.js --sku seat-standard --quantity 25 --tier growth \
+  --region US --json
+```
+
+The CLI takes the same path as the HTTP route, so a discrepancy between the two
+means the difference is in `src/api/routes/quotes.ts`, not in pricing.

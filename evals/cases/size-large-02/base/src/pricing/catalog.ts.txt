@@ -1,0 +1,71 @@
+import { InactiveSkuError, UnknownSkuError } from './errors.js'
+import type { Catalog, CatalogEntry, CurrencyCode } from './types.js'
+
+const ENTRIES: readonly CatalogEntry[] = [
+  {
+    sku: 'seat-standard',
+    name: 'Standard seat',
+    unitAmount: 18,
+    meteredUnit: 'seat',
+    minQuantity: 1,
+    maxQuantity: 5000,
+    active: true,
+  },
+  {
+    sku: 'seat-enterprise',
+    name: 'Enterprise seat',
+    unitAmount: 42,
+    meteredUnit: 'seat',
+    minQuantity: 10,
+    maxQuantity: 20000,
+    active: true,
+  },
+  {
+    sku: 'api-requests-1k',
+    name: 'API requests (per 1k)',
+    unitAmount: 0.4,
+    meteredUnit: 'request',
+    minQuantity: 1,
+    maxQuantity: 1000000,
+    active: true,
+  },
+  {
+    sku: 'storage-gb',
+    name: 'Object storage (per GB)',
+    unitAmount: 0.12,
+    meteredUnit: 'gigabyte',
+    minQuantity: 1,
+    maxQuantity: 100000,
+    active: true,
+  },
+  {
+    sku: 'seat-legacy',
+    name: 'Legacy seat',
+    unitAmount: 12,
+    meteredUnit: 'seat',
+    minQuantity: 1,
+    maxQuantity: 500,
+    active: false,
+  },
+]
+
+export function loadCatalog(currency: CurrencyCode, revision: string): Catalog {
+  return { currency, revision, entries: ENTRIES }
+}
+
+export function entryFor(catalog: Catalog, sku: string): CatalogEntry {
+  const entry = catalog.entries.find((candidate) => candidate.sku === sku)
+  if (!entry) {
+    throw new UnknownSkuError(sku)
+  }
+  if (!entry.active) {
+    throw new InactiveSkuError(sku)
+  }
+  return entry
+}
+
+export function skusFor(catalog: Catalog, unit: string): string[] {
+  return catalog.entries
+    .filter((entry) => entry.active && entry.meteredUnit === unit)
+    .map((entry) => entry.sku)
+}

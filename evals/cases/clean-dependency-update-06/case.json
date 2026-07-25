@@ -1,0 +1,8 @@
+{
+  "id": "clean-dependency-update-06",
+  "category": "clean",
+  "mode": "base",
+  "expected": [],
+  "origin": "false positive の測定用。node-fetch を 2.x から 3.x に上げ、廃止された timeout オプションと Response#buffer() を AbortSignal.timeout と arrayBuffer() に置き換えた差分を模した",
+  "clean": true
+}

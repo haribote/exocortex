@@ -6,21 +6,37 @@ const cases = loadCases()
 
 describe('loadCases', () => {
   it('loads every case directory under cases/', () => {
-    expect(cases.map((evalCase) => evalCase.spec.id)).toEqual([
-      'clean-refactor-01',
-      'convention-nondeterminism-01',
-      'dataflow-stale-value-01',
-      'logic-inversion-01',
-    ])
+    const dirs = readdirSync(CASES_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+    expect(cases.map((evalCase) => evalCase.spec.id)).toEqual(dirs)
   })
 
-  it('covers the three planted bugs and one clean case', () => {
-    expect(cases.map((evalCase) => evalCase.spec.category)).toEqual([
-      'clean',
-      'convention',
-      'dataflow',
-      'logic',
-    ])
+  it('covers the planned distribution of categories', () => {
+    const counts: Record<string, number> = {}
+    for (const evalCase of cases) {
+      counts[evalCase.spec.category] = (counts[evalCase.spec.category] ?? 0) + 1
+    }
+    expect(counts).toEqual({
+      logic: 2,
+      dataflow: 2,
+      convention: 2,
+      'error-handling': 2,
+      concurrency: 2,
+      resource: 2,
+      clean: 6,
+      size: 2,
+    })
+  })
+
+  it('keeps the planted bugs and the false positive probes balanced', () => {
+    const planted = cases.filter(
+      (evalCase) => !evalCase.spec.clean && evalCase.spec.category !== 'size',
+    )
+    const clean = cases.filter((evalCase) => evalCase.spec.clean)
+    expect(planted).toHaveLength(12)
+    expect(clean).toHaveLength(6)
   })
 
   it('exercises all three review modes', () => {

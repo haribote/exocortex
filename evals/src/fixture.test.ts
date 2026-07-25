@@ -48,12 +48,13 @@ describe('createFixture', () => {
     expect(createFixture.length).toBe(1)
   })
 
-  it('leaves the case source directory byte for byte unchanged', () => {
-    const evalCase = cases[0] as EvalCase
-    const before = snapshotDir(evalCase.dir)
-    open(evalCase.spec.id)
+  it('leaves every case source directory byte for byte unchanged', () => {
+    for (const evalCase of cases) {
+      const before = snapshotDir(evalCase.dir)
+      open(evalCase.spec.id)
 
-    expect(snapshotDir(evalCase.dir)).toEqual(before)
+      expect(snapshotDir(evalCase.dir), evalCase.spec.id).toEqual(before)
+    }
   })
 
   it('removes the temp tree on cleanup', () => {

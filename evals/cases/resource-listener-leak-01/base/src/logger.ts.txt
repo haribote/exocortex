@@ -1,0 +1,8 @@
+export const logger = {
+  info(message: string): void {
+    process.stdout.write(`[info] ${message}\n`)
+  },
+  warn(message: string): void {
+    process.stderr.write(`[warn] ${message}\n`)
+  },
+}

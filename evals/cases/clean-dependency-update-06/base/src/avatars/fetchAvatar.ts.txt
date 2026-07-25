@@ -1,0 +1,27 @@
+import fetch from 'node-fetch'
+
+const AVATAR_BASE_URL = 'https://avatars.example.com'
+const REQUEST_TIMEOUT_MS = 5_000
+const MAX_AVATAR_BYTES = 512 * 1024
+const FALLBACK_CONTENT_TYPE = 'application/octet-stream'
+
+export interface Avatar {
+  contentType: string
+  bytes: Buffer
+}
+
+export async function fetchAvatar(userId: string): Promise<Avatar> {
+  const url = `${AVATAR_BASE_URL}/${encodeURIComponent(userId)}`
+  const response = await fetch(url, {
+    size: MAX_AVATAR_BYTES,
+    timeout: REQUEST_TIMEOUT_MS,
+  })
+  if (!response.ok) {
+    throw new Error(`avatar request failed with status ${response.status}`)
+  }
+
+  return {
+    contentType: response.headers.get('content-type') ?? FALLBACK_CONTENT_TYPE,
+    bytes: await response.buffer(),
+  }
+}

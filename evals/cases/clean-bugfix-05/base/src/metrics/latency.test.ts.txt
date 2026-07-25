@@ -1,0 +1,16 @@
+import { describe, expect, it } from 'vitest'
+import { medianLatency } from './latency.ts'
+
+describe('medianLatency', () => {
+  it('returns null when there is no sample', () => {
+    expect(medianLatency([])).toBe(null)
+  })
+
+  it('returns the middle sample for an odd count', () => {
+    expect(medianLatency([3, 1, 2])).toBe(2)
+  })
+
+  it('averages the two middle samples for an even count', () => {
+    expect(medianLatency([4, 1, 2, 3])).toBe(2.5)
+  })
+})

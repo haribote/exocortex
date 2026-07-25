@@ -1,0 +1,12 @@
+import {
+  type WorkspaceMember,
+  canEdit,
+  listWorkspaceMembers,
+} from './membership.ts'
+
+export function listWorkspaceEditors(
+  members: readonly WorkspaceMember[],
+  workspaceId: string,
+): WorkspaceMember[] {
+  return listWorkspaceMembers(members, workspaceId).filter(canEdit)
+}

@@ -1,0 +1,94 @@
+import { loadCatalog } from '../../pricing/catalog.js'
+import { statusFor } from '../../pricing/errors.js'
+import { buildQuote } from '../../pricing/quote.js'
+import { roundToStep } from '../../pricing/rounding.js'
+import { isRegion, isTierId } from '../../pricing/types.js'
+import { pricingConfig } from '../../config/pricing.js'
+import { warn } from '../../observability/log.js'
+import type { HttpRequest, HttpResponse } from './quotes.js'
+
+const WINDOW_MS = 60_000
+const MAX_REQUESTS_PER_WINDOW = 20
+const DISPLAY_STEP_MINOR = 100
+
+interface RateWindow {
+  count: number
+  windowStartedAt: number
+}
+
+const rateWindows = new Map<string, RateWindow>()
+
+function clientIp(request: HttpRequest): string {
+  return request.headers['x-forwarded-for'] ?? 'unknown'
+}
+
+function isRateLimited(ip: string, now: number): boolean {
+  const existing = rateWindows.get(ip)
+  if (!existing || now - existing.windowStartedAt >= WINDOW_MS) {
+    rateWindows.set(ip, { count: 1, windowStartedAt: now })
+    return false
+  }
+  existing.count += 1
+  return existing.count > MAX_REQUESTS_PER_WINDOW
+}
+
+export function pruneStaleWindows(now: number): number {
+  let pruned = 0
+  for (const [ip, window] of rateWindows) {
+    if (now - window.windowStartedAt >= WINDOW_MS) {
+      rateWindows.delete(ip)
+      pruned += 1
+    }
+  }
+  return pruned
+}
+
+export function getEstimate(request: HttpRequest): HttpResponse {
+  const ip = clientIp(request)
+
+  if (isRateLimited(ip, Date.now())) {
+    warn('http.estimate.rate_limited', { ip })
+    return { status: 429, body: { error: 'too many requests, slow down' } }
+  }
+
+  const region = String(request.body.region ?? '')
+  const tier = String(request.body.tier ?? '')
+  const sku = String(request.body.sku ?? '')
+  const quantity = Number(request.body.quantity ?? Number.NaN)
+
+  if (!isRegion(region) || !isTierId(tier) || sku.length === 0) {
+    return { status: 400, body: { error: 'sku, region, and tier are required' } }
+  }
+
+  const catalog = loadCatalog(
+    pricingConfig.defaultCurrency,
+    pricingConfig.catalogRevision,
+  )
+
+  try {
+    const quote = buildQuote(
+      {
+        customerId: 'anonymous',
+        sku,
+        quantity,
+        tier,
+        region,
+        requestedAt: new Date().toISOString(),
+      },
+      catalog,
+    )
+
+    return {
+      status: 200,
+      body: {
+        currency: quote.currency,
+        approxTotalMinor: roundToStep(quote.totalMinor, DISPLAY_STEP_MINOR),
+        approxTaxMinor: roundToStep(quote.taxMinor, DISPLAY_STEP_MINOR),
+        note: 'estimate only, does not reflect final billing',
+      },
+    }
+  } catch (cause) {
+    warn('http.estimate.failed', { ip, message: String(cause) })
+    return { status: statusFor(cause), body: { error: String(cause) } }
+  }
+}

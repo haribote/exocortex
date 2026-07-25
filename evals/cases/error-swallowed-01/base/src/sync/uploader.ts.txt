@@ -1,0 +1,18 @@
+import type { OutboxEntry } from './outbox.js'
+
+const DOCUMENTS_ENDPOINT = '/api/documents'
+
+export async function uploadEntry(entry: OutboxEntry): Promise<void> {
+  const response = await fetch(`${DOCUMENTS_ENDPOINT}/${entry.documentId}`, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json',
+      'if-match': String(entry.revision),
+    },
+    body: entry.body,
+  })
+
+  if (!response.ok) {
+    throw new Error(`upload of ${entry.documentId} failed: ${response.status}`)
+  }
+}

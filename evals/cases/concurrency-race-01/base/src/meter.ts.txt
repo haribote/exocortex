@@ -1,0 +1,26 @@
+import {
+  type QuotaStatus,
+  USAGE_TTL_SECONDS,
+  quotaStatus,
+  usageKey,
+} from './quota.js'
+import type { KeyValueStore } from './store.js'
+
+export interface UsageEvent {
+  tenantId: string
+  month: string
+  endpoint: string
+  tokens: number
+}
+
+export class UsageMeter {
+  constructor(private readonly store: KeyValueStore) {}
+
+  async record(event: UsageEvent): Promise<QuotaStatus> {
+    const key = usageKey(event.tenantId, event.month)
+    const total = await this.store.incrBy(key, event.tokens)
+
+    await this.store.expire(key, USAGE_TTL_SECONDS)
+    return quotaStatus(total)
+  }
+}

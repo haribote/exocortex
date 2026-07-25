@@ -1,0 +1,101 @@
+import { loadCatalog } from '../pricing/catalog.js'
+import { isPricingError } from '../pricing/errors.js'
+import { buildQuote } from '../pricing/quote.js'
+import type { QuoteRequest, TierId } from '../pricing/types.js'
+import { isActive, seatCount, type Subscription } from './subscription.js'
+import { pricingConfig } from '../config/pricing.js'
+import { warn } from '../observability/log.js'
+
+export interface EntitlementLimits {
+  seatLimit: number
+  meteredCapMinor: number
+}
+
+export interface EntitlementCheck {
+  allowed: boolean
+  reason?: string
+}
+
+const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000
+
+const SEAT_LIMITS: Record<TierId, number> = {
+  free: 3,
+  starter: 25,
+  growth: 250,
+  scale: Number.POSITIVE_INFINITY,
+}
+
+const METERED_CAP_MINOR: Record<TierId, number> = {
+  free: 5000,
+  starter: 50000,
+  growth: 500000,
+  scale: 5000000,
+}
+
+export function limitsFor(subscription: Subscription): EntitlementLimits {
+  return {
+    seatLimit: SEAT_LIMITS[subscription.tier],
+    meteredCapMinor: METERED_CAP_MINOR[subscription.tier],
+  }
+}
+
+export function withinGrace(subscription: Subscription, at: string): boolean {
+  if (!subscription.cancelledAt) return false
+  const cancelled = new Date(subscription.cancelledAt).getTime()
+  const asked = new Date(at).getTime()
+  return asked >= cancelled && asked - cancelled <= GRACE_PERIOD_MS
+}
+
+export function check(
+  subscription: Subscription,
+  request: QuoteRequest,
+  at: string,
+): EntitlementCheck {
+  if (!isActive(subscription, at) && !withinGrace(subscription, at)) {
+    return { allowed: false, reason: 'subscription_inactive' }
+  }
+
+  const catalog = loadCatalog(subscription.currency, pricingConfig.catalogRevision)
+  const limits = limitsFor(subscription)
+
+  let quote
+  try {
+    quote = buildQuote(request, catalog)
+  } catch (caught) {
+    if (isPricingError(caught)) {
+      return { allowed: false, reason: caught.code }
+    }
+    throw caught
+  }
+
+  if (request.sku.startsWith('seat-')) {
+    const projected = seatCount(subscription) + request.quantity
+    if (projected > limits.seatLimit) {
+      warn('entitlement.seat_limit_exceeded', {
+        subscriptionId: subscription.id,
+        projected,
+        seatLimit: limits.seatLimit,
+      })
+      return { allowed: false, reason: 'seat_limit_exceeded' }
+    }
+  } else if (quote.totalMinor > limits.meteredCapMinor) {
+    warn('entitlement.metered_cap_exceeded', {
+      subscriptionId: subscription.id,
+      requestedMinor: quote.totalMinor,
+      capMinor: limits.meteredCapMinor,
+    })
+    return { allowed: false, reason: 'metered_cap_exceeded' }
+  }
+
+  if (withinGrace(subscription, at)) {
+    return { allowed: true, reason: 'grace_period' }
+  }
+
+  return { allowed: true }
+}
+
+export function remainingSeats(subscription: Subscription): number {
+  const limit = SEAT_LIMITS[subscription.tier]
+  if (limit === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY
+  return Math.max(0, limit - seatCount(subscription))
+}

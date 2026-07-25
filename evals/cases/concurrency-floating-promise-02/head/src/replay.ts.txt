@@ -1,0 +1,30 @@
+import type { InventoryEvent, InventoryState } from './events.js'
+import { handlers } from './handlers.js'
+import type { ReadModel } from './read-model.js'
+
+export interface ReplayResult {
+  applied: string[]
+  skipped: string[]
+}
+
+export async function replay(
+  state: InventoryState,
+  events: readonly InventoryEvent[],
+  readModel: ReadModel,
+): Promise<ReplayResult> {
+  const applied: string[] = []
+  const skipped: string[] = []
+
+  events.forEach(async (event) => {
+    const handler = handlers[event.type]
+    if (handler === undefined) {
+      skipped.push(event.id)
+      return
+    }
+
+    await handler(state, event, readModel)
+    applied.push(event.id)
+  })
+
+  return { applied, skipped }
+}

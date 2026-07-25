@@ -1,0 +1,8 @@
+{
+  "id": "clean-tests-added-03",
+  "category": "clean",
+  "mode": "staged",
+  "expected": [],
+  "origin": "false positive の測定用。既存の slugify に境界ケースのテストを足しただけで、プロダクトコードには触れていない差分を模した",
+  "clean": true
+}

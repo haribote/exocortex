@@ -1,0 +1,17 @@
+{
+  "id": "concurrency-race-01",
+  "category": "concurrency",
+  "mode": "worktree",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/meter.ts",
+      "anchor": "const snapshot = decodeSnapshot(await this.store.get(key))",
+      "span": 4,
+      "summary": "atomic な incrBy を get と set の read-modify-write に置き換えたため、同じテナントのリクエストが並行すると先に読んだ側の加算が上書きされ、利用量が過少に記録される",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。実在する公開コミットは根拠にしていない。atomic なカウンタから endpoint 別の内訳を持つ JSON に移行したときに、await を挟んだ read-modify-write が lost update を起こす、という実務でよくある型をモデル化した",
+  "clean": false
+}

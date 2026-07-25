@@ -1,0 +1,115 @@
+import { loadCatalog } from '../pricing/catalog.js'
+import { isPricingError } from '../pricing/errors.js'
+import { sumMinor } from '../pricing/money.js'
+import { buildQuote } from '../pricing/quote.js'
+import type { Quote, QuoteRequest } from '../pricing/types.js'
+import { isActive, type Subscription } from './subscription.js'
+import { pricingConfig } from '../config/pricing.js'
+import { info, warn } from '../observability/log.js'
+
+export type RenewalOutcome = 'renewed' | 'skipped' | 'failed'
+
+export interface RenewalPlan {
+  subscriptionId: string
+  customerId: string
+  renewsAt: string
+  quotes: readonly Quote[]
+  totalMinor: number
+}
+
+export interface RenewalResult {
+  subscriptionId: string
+  outcome: RenewalOutcome
+  reason?: string
+  plan?: RenewalPlan
+}
+
+const PERIOD_DAYS = 30
+
+export function nextRenewalDate(startedAt: string, now: string): string {
+  const start = new Date(startedAt).getTime()
+  const current = new Date(now).getTime()
+  const period = PERIOD_DAYS * 24 * 60 * 60 * 1000
+  const elapsed = Math.max(0, current - start)
+  const periods = Math.floor(elapsed / period) + 1
+  return new Date(start + periods * period).toISOString()
+}
+
+export function dueWithin(
+  subscription: Subscription,
+  now: string,
+  days: number,
+): boolean {
+  const due = new Date(nextRenewalDate(subscription.startedAt, now)).getTime()
+  const horizon = new Date(now).getTime() + days * 24 * 60 * 60 * 1000
+  return due <= horizon
+}
+
+function requestsFor(
+  subscription: Subscription,
+  renewsAt: string,
+): QuoteRequest[] {
+  return subscription.lines.map((line) => ({
+    customerId: subscription.customerId,
+    sku: line.sku,
+    quantity: line.quantity,
+    tier: subscription.tier,
+    region: subscription.region,
+    requestedAt: renewsAt,
+  }))
+}
+
+export function planRenewal(
+  subscription: Subscription,
+  now: string,
+): RenewalResult {
+  if (!isActive(subscription, now)) {
+    return {
+      subscriptionId: subscription.id,
+      outcome: 'skipped',
+      reason: 'subscription is not active',
+    }
+  }
+
+  const renewsAt = nextRenewalDate(subscription.startedAt, now)
+  const catalog = loadCatalog(
+    subscription.currency,
+    pricingConfig.catalogRevision,
+  )
+
+  try {
+    const quotes = requestsFor(subscription, renewsAt).map((request) =>
+      buildQuote(request, catalog),
+    )
+
+    const plan: RenewalPlan = {
+      subscriptionId: subscription.id,
+      customerId: subscription.customerId,
+      renewsAt,
+      quotes,
+      totalMinor: sumMinor(quotes.map((quote) => quote.totalMinor)),
+    }
+
+    info('renewal.planned', {
+      subscriptionId: subscription.id,
+      renewsAt,
+      totalMinor: plan.totalMinor,
+    })
+
+    return { subscriptionId: subscription.id, outcome: 'renewed', plan }
+  } catch (cause) {
+    const reason = isPricingError(cause) ? cause.code : 'unexpected_error'
+    warn('renewal.failed', { subscriptionId: subscription.id, reason })
+    return { subscriptionId: subscription.id, outcome: 'failed', reason }
+  }
+}
+
+export function planAll(
+  subscriptions: readonly Subscription[],
+  now: string,
+  horizonDays = 7,
+): RenewalResult[] {
+  return subscriptions
+    .filter((subscription) => dueWithin(subscription, now, horizonDays))
+    .map((subscription) => planRenewal(subscription, now))
+}

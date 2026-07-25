@@ -1,0 +1,8 @@
+{
+  "id": "clean-type-annotations-04",
+  "category": "clean",
+  "mode": "base",
+  "expected": [],
+  "origin": "false positive の測定用。公開関数に戻り値の型注釈を付け、推論に頼っていた戻り値の形を interface として明示しただけの差分を模した",
+  "clean": true
+}
