@@ -31,6 +31,19 @@ VRAM 16GB クラスの GPU を搭載したゲーミング PC をローカル LLM
   - [POST /review](docs/api-reference.md#post-review)
   - [POST /translate](docs/api-reference.md#post-translate)
   - [エラー](docs/api-reference.md#エラー)
+- [@exocortex/evals](evals/README.md)：レビューモデルを比較するための eval harness
+  - [何を測るか](evals/README.md#何を測るか)
+  - [セットアップ](evals/README.md#セットアップ)
+  - [単体テスト](evals/README.md#単体テスト)
+  - [計測の実行](evals/README.md#計測の実行)
+  - [無人実行のための自動切り替え](evals/README.md#無人実行のための自動切り替え)
+  - [途中で落ちたとき](evals/README.md#途中で落ちたとき)
+  - [レポートの生成](evals/README.md#レポートの生成)
+  - [盲検の採点](evals/README.md#盲検の採点)
+  - [case を追加する](evals/README.md#case-を追加する)
+  - [現在の case](evals/README.md#現在の-case)
+  - [サイズ case で測るもの](evals/README.md#サイズ-case-で測るもの)
+  - [採否をどう決めるか](evals/README.md#採否をどう決めるか)
 
 ## 動作環境
 
