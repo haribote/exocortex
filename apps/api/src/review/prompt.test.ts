@@ -79,23 +79,153 @@ describe('buildReviewPrompt', () => {
   })
 })
 
-describe('buildReviewBody', () => {
-  const inputs: ReviewPromptInput[] = [
-    makeInput(),
-    makeInput({ rules: ['No Side Effects', 'Prefer const'] }),
-    makeInput({
-      rules: ['No Side Effects'],
-      contextFiles: [
-        { path: 'a.ts', content: 'const a = 1\nconst b = 2' },
-        { path: 'src/b.ts', content: 'export function f() {\n  return 1\n}' },
-      ],
-      diff: 'diff --git a/a.ts b/a.ts\n+const a = 1',
-      language: 'rust',
-    }),
-  ]
+const bare = makeInput()
 
-  // Moving the system instruction out of the body must not shift a single byte
-  // of the baseline prompt, or the eval numbers stop comparing across runs.
+const withRules = makeInput({ rules: ['No Side Effects', 'Prefer const'] })
+
+const withContext = makeInput({
+  rules: ['No Side Effects'],
+  contextFiles: [
+    { path: 'a.ts', content: 'const a = 1\nconst b = 2' },
+    { path: 'src/b.ts', content: 'export function f() {\n  return 1\n}' },
+  ],
+  diff: 'diff --git a/a.ts b/a.ts\n+const a = 1',
+  language: 'rust',
+})
+
+// These snapshots are the baseline prompt as of bf23918, transcribed verbatim.
+// The eval compares every configuration against that exact text, so a diff here
+// invalidates the comparison rather than reporting a harmless refactor. Do not
+// run vitest -u to make one pass: change the snapshot only when the intent is to
+// abandon the old baseline and re-measure every configuration against a new one.
+describe('baseline prompt text', () => {
+  it('renders a prompt with neither rules nor context files', () => {
+    expect(buildReviewPrompt(bare)).toMatchInlineSnapshot(`
+      "You are a meticulous senior code reviewer.
+      Review the given diff and report concrete, actionable problems.
+      Do not praise. Do not restate what the code does. Report only problems worth fixing.
+
+      Every context file below is shown with a line number before a tab on each line.
+      Use those line numbers in the "line" field. Do not count lines yourself.
+      Report a problem only if you can point at the exact line that contains it.
+      If the code you want to complain about is not in the given files, do not report it.
+
+      Put the offending line in "quote", copied character for character from the file.
+      Do not paraphrase it, do not reformat it, do not invent it.
+      Every comment whose quote does not appear in the file is discarded before you are read,
+      so a comment you cannot quote is a comment nobody sees.
+
+      Assign each comment a severity:
+      - "critical": the changed code is wrong or unsafe, and will fail or corrupt data as written
+      - "major": the changed code will behave incorrectly in a plausible case
+      - "minor": a real defect whose impact is small
+      - "info": a suggestion that is safe to ignore
+
+      Respond with JSON matching this shape:
+      {"summary": string, "comments": [{"severity": string, "file": string, "line": number, "quote": string, "message": string}]}
+
+      Language: typescript
+
+      Diff to review:
+      \`\`\`diff
+      diff --git a/a.ts b/a.ts
+      \`\`\`"
+    `)
+  })
+
+  it('renders a prompt with rules', () => {
+    expect(buildReviewPrompt(withRules)).toMatchInlineSnapshot(`
+      "You are a meticulous senior code reviewer.
+      Review the given diff and report concrete, actionable problems.
+      Do not praise. Do not restate what the code does. Report only problems worth fixing.
+
+      Every context file below is shown with a line number before a tab on each line.
+      Use those line numbers in the "line" field. Do not count lines yourself.
+      Report a problem only if you can point at the exact line that contains it.
+      If the code you want to complain about is not in the given files, do not report it.
+
+      Put the offending line in "quote", copied character for character from the file.
+      Do not paraphrase it, do not reformat it, do not invent it.
+      Every comment whose quote does not appear in the file is discarded before you are read,
+      so a comment you cannot quote is a comment nobody sees.
+
+      Assign each comment a severity:
+      - "critical": the changed code is wrong or unsafe, and will fail or corrupt data as written
+      - "major": the changed code will behave incorrectly in a plausible case
+      - "minor": a real defect whose impact is small
+      - "info": a suggestion that is safe to ignore
+
+      Respond with JSON matching this shape:
+      {"summary": string, "comments": [{"severity": string, "file": string, "line": number, "quote": string, "message": string}]}
+
+      Language: typescript
+
+      Project rules:
+      - No Side Effects
+      - Prefer const
+
+      Diff to review:
+      \`\`\`diff
+      diff --git a/a.ts b/a.ts
+      \`\`\`"
+    `)
+  })
+
+  it('renders a prompt with rules and context files', () => {
+    expect(buildReviewPrompt(withContext)).toMatchInlineSnapshot(`
+      "You are a meticulous senior code reviewer.
+      Review the given diff and report concrete, actionable problems.
+      Do not praise. Do not restate what the code does. Report only problems worth fixing.
+
+      Every context file below is shown with a line number before a tab on each line.
+      Use those line numbers in the "line" field. Do not count lines yourself.
+      Report a problem only if you can point at the exact line that contains it.
+      If the code you want to complain about is not in the given files, do not report it.
+
+      Put the offending line in "quote", copied character for character from the file.
+      Do not paraphrase it, do not reformat it, do not invent it.
+      Every comment whose quote does not appear in the file is discarded before you are read,
+      so a comment you cannot quote is a comment nobody sees.
+
+      Assign each comment a severity:
+      - "critical": the changed code is wrong or unsafe, and will fail or corrupt data as written
+      - "major": the changed code will behave incorrectly in a plausible case
+      - "minor": a real defect whose impact is small
+      - "info": a suggestion that is safe to ignore
+
+      Respond with JSON matching this shape:
+      {"summary": string, "comments": [{"severity": string, "file": string, "line": number, "quote": string, "message": string}]}
+
+      Language: rust
+
+      Project rules:
+      - No Side Effects
+
+      File: a.ts
+      \`\`\`
+      1	const a = 1
+      2	const b = 2
+      \`\`\`
+
+      File: src/b.ts
+      \`\`\`
+      1	export function f() {
+      2	  return 1
+      3	}
+      \`\`\`
+
+      Diff to review:
+      \`\`\`diff
+      diff --git a/a.ts b/a.ts
+      +const a = 1
+      \`\`\`"
+    `)
+  })
+})
+
+describe('buildReviewBody', () => {
+  const inputs: ReviewPromptInput[] = [bare, withRules, withContext]
+
   it('rejoins with the system instruction into the exact prompt buildReviewPrompt returns', () => {
     for (const input of inputs) {
       expect(buildReviewPrompt(input)).toBe(
