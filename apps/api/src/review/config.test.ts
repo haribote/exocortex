@@ -4,7 +4,6 @@ import {
   parseReviewDebugRaw,
   parseReviewSystemMode,
   parseReviewThink,
-  parseReviewThinkPrefix,
   ReviewConfigError,
 } from './config.js'
 
@@ -63,20 +62,6 @@ describe('parseReviewThink', () => {
   })
 })
 
-describe('parseReviewThinkPrefix', () => {
-  it('treats unset and empty as no prefix', () => {
-    expect(parseReviewThinkPrefix(undefined)).toBeUndefined()
-    expect(parseReviewThinkPrefix('')).toBeUndefined()
-  })
-
-  // The prefix is prepended verbatim, so its trailing newline is significant.
-  it('keeps surrounding whitespace, which is part of the prefix', () => {
-    expect(parseReviewThinkPrefix('Reasoning: high\n')).toBe(
-      'Reasoning: high\n',
-    )
-  })
-})
-
 describe('parseReviewDebugRaw', () => {
   it('is off when unset or empty', () => {
     expect(parseReviewDebugRaw(undefined)).toBe(false)
@@ -99,7 +84,6 @@ describe('loadReviewConfig', () => {
   it('returns the baseline configuration for an empty environment', () => {
     expect(loadReviewConfig({})).toEqual({
       systemMode: 'none',
-      thinkPrefix: undefined,
       think: undefined,
       debugRaw: false,
     })
@@ -109,13 +93,11 @@ describe('loadReviewConfig', () => {
     expect(
       loadReviewConfig({
         REVIEW_SYSTEM_MODE: '',
-        REVIEW_THINK_PREFIX: '',
         REVIEW_THINK: '',
         REVIEW_DEBUG_RAW: '',
       }),
     ).toEqual({
       systemMode: 'none',
-      thinkPrefix: undefined,
       think: undefined,
       debugRaw: false,
     })
@@ -125,38 +107,21 @@ describe('loadReviewConfig', () => {
     expect(
       loadReviewConfig({
         REVIEW_SYSTEM_MODE: 'prefix',
-        REVIEW_THINK_PREFIX: 'Reasoning: high\n',
         REVIEW_THINK: 'high',
         REVIEW_DEBUG_RAW: '1',
       }),
     ).toEqual({
       systemMode: 'prefix',
-      thinkPrefix: 'Reasoning: high\n',
       think: 'high',
       debugRaw: true,
     })
   })
 
-  // A think prefix only reaches the model through the system message, so this
-  // combination silently discards the prefix the operator asked for.
-  it('refuses a think prefix that no system message would carry', () => {
+  // REVIEW_THINK_PREFIX was measured to change nothing, so it was removed. A
+  // stale one left in an operator's .env must not keep the api from starting.
+  it('ignores a variable it no longer knows about', () => {
     expect(() =>
-      loadReviewConfig({ REVIEW_THINK_PREFIX: 'Reasoning: high\n' }),
-    ).toThrow(ReviewConfigError)
-    expect(() =>
-      loadReviewConfig({
-        REVIEW_SYSTEM_MODE: 'none',
-        REVIEW_THINK_PREFIX: 'Reasoning: high\n',
-      }),
-    ).toThrow(/REVIEW_THINK_PREFIX.*REVIEW_SYSTEM_MODE/s)
-  })
-
-  it('allows a prefix once the system message exists to carry it', () => {
-    expect(
-      loadReviewConfig({
-        REVIEW_SYSTEM_MODE: 'prefix',
-        REVIEW_THINK_PREFIX: 'Reasoning: high\n',
-      }).thinkPrefix,
-    ).toBe('Reasoning: high\n')
+      loadReviewConfig({ REVIEW_THINK_PREFIX: '<|think|>' }),
+    ).not.toThrow()
   })
 })

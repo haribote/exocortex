@@ -114,15 +114,18 @@ node src/run.ts --run 2026-07 --switch --repeats 3
 ```
 
 現在の 6 config は次のとおりです。
+`runs/main-01` を再現できるよう、入れ替え前の構成のまま残してあります。
 
 | id | REVIEW_MODEL | 設定 |
 | --- | --- | --- |
-| C0 | `qwen3:14b` | なし。thinking 有効で、現行の本番構成そのものです |
+| C0 | `qwen3:14b` | なし。thinking 有効で、入れ替え前の本番構成です |
 | C0p | `qwen3:14b` | `REVIEW_SYSTEM_MODE=prefix` |
-| C1 | `gemma4:12b` | なし。thinking 有効です |
+| C1 | `gemma4:12b` | なし。thinking 有効。**この構成を採用しました** |
 | C2 | `gemma4:12b` | `REVIEW_THINK=false` |
 | C3 | `qwen3.5:9b` | なし |
 | C4 | `gpt-oss:20b` | `REVIEW_THINK=high` |
+
+次にモデルを替えるときは、そのときの本番構成を baseline として先頭に置いてください。
 
 thinking の有無の対照は `REVIEW_THINK` で作ります。
 `gemma4:12b` は `think` 未指定と `think: true` が完全に同一の結果になり、thinking は既定で有効だと実測で分かったためです。
@@ -302,9 +305,50 @@ tokenizer の密度がモデルごとに違うためです。
 サーバーはこの値で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰めます。
 qwen3 では安全側に倒れますが、gemma4 では 16% の過小評価になります。
 
-つまり `MAX_INPUT_TOKENS` 相当まで詰めた入力は、gemma4 では実トークンで context を超えます。
-バグあり 12 件と clean 6 件は入力が小さいのでここを踏みません。
-サイズ 2 件だけが踏みます。
+当初はこの過小評価だけで context を超えると考えていましたが、`main-01` がそれを否定しました。
+`size-large-02` を thinking 無効の gemma4（C2）で回すと 3/3 で成功し、検出もできています。
+入力そのものは収まっており、超えさせているのは thinking です。
 
 そのため、サイズ case では `hit@±2` ではなく `prompt tokens` と `context 残余`、そして `dropped context files` を読んでください。
 `summary.md` の case 別の表にどちらも出ます。
+
+なお `main-01` の後に `RESERVED_OUTPUT_TOKENS` を 12288 へ引き上げたため、`MAX_INPUT_TOKENS` は 28672 から 20480 に下がりました。
+`size-large-02` は 28672 の直下を狙って作ったので、現在は予算を超えて context が落とされる側に回っています。
+`main-01` の数値と直接は比較できません。
+
+## main-01 の結果と採用の判断
+
+2026-07-25 に 6 config × 20 case × 3 repeat の 360 リクエストを実行しました。
+生データは `runs/main-01/results.ndjson`、集計は `runs/main-01/summary.md` にあります。
+
+| config | schemaOk | 検出 | clean の major 以上 | 引用の整合 |
+| --- | --- | --- | --- | --- |
+| C0 `qwen3:14b`（入れ替え前） | 88.3% | 8/12 | 4 | 84.2% |
+| C0p `qwen3:14b` + system role | 93.3% | 9/12 | 3 | 69.8% |
+| **C1 `gemma4:12b`** | **93.3%** | **12/12** | **0** | **100%** |
+| C2 `gemma4:12b` think=false | 100% | 9/12 | 6 | 100% |
+| C3 `qwen3.5:9b` | 80.0% | 9/12 | 9 | 80.8% |
+| C4 `gpt-oss:20b` think=high | 78.3% | 11/12 | 12 | 94.2% |
+
+**C1 を採用しました。事前に決めた 5 つのゲートのうち、ゲート 1 だけを満たしていません。**
+
+ゲート 1 は「`schemaOk` が 95% 以上」で、C1 は 93.3% です。
+ただし C1 の失敗 4 件はすべてサイズ 2 件に集中しており、残る 18 case では 54/54 で 100% です。
+同じ 18 case で C0 は 47/54（87.0%）で、7 件の失敗が 4 つの通常 case に散らばっていました。
+つまり通常のレビューでは C1 のほうが安定しています。
+
+ゲート 2（非退行）、3（優位。C1 のみ検出 4 件、C0 のみ 0 件）、4（誤検出 0 ≤ 4）、5（引用 100%）はいずれも通過しています。
+未達成のゲート 1 を承知の上で採用した、という判断です。
+
+### 副次的に分かったこと
+
+**thinking は prompt 側に積み上がります。** `promptEvalTokens` は `inputTokens` の見積もりを p50 で 5286、p95 で 8295、最大 21411 トークン上回りました。
+入力の大きさではなく case の難しさで決まるため、入力長から予測できません。
+これを受けて `RESERVED_OUTPUT_TOKENS` を 4096 から 12288 に引き上げ、`MAX_INPUT_TOKENS` を 20480 にしました。
+
+**thinking の有無が精度を大きく左右します。** 同じ gemma4 で thinking を切ると、検出が 12/12 から 9/12 に落ち、誤検出が 0 から 6 に増えました。
+代わりに平均所要は 77.1 秒から 2.5 秒になります。速度を優先する用途では `REVIEW_THINK=false` という選択肢があります。
+
+**指摘するものが無い差分で thinking が発散する傾向があります。** Qwen 系 3 config は `clean-type-annotations-04` で 3/3 失敗し、gpt-oss は `clean-dependency-update-06` と `clean-rename-02` で失敗しました。
+gemma4 の thinking 有効だけが clean 6 件を無傷で通しています。
+機構は特定できていません。

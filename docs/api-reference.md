@@ -78,7 +78,7 @@ rm -rf "$tmp"
     { "severity": "major", "file": "src/foo.ts", "line": 42, "quote": "...", "message": "..." }
   ],
   "meta": {
-    "model": "qwen3:14b",
+    "model": "gemma4:12b",
     "inputTokens": 12043,
     "durationMs": 18234,
     "droppedComments": 1,
@@ -101,7 +101,13 @@ rm -rf "$tmp"
 
 `outputTokens` は thinking の分を含まない。
 `/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである（Ollama 0.32.1 で実測）。
-thinking がどれだけ出力枠を使ったかを知るには、`REVIEW_DEBUG_RAW` を有効にして `thinking` の長さを見る。
+thinking の量は `meta.thinkingChars` に出る。
+
+thinking は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを大きく上回る。
+gemma4:12b で 56 件を測ったところ、その差は p50 が 5286、p95 が 8295、最大 21411 トークンだった。
+入力の大きさではなく case の難しさで決まるので、入力長からは予測できない。
+サーバーが入力に確保する上限を 20480 トークンに抑えているのはこのためで、残りを thinking と出力の余地として空けてある。
+大きな diff では `droppedContextFiles` が増えるが、context を超えて壊れた出力が返るよりは扱いやすい。
 `loadDurationMs` はモデルのロードに要した時間で、`durationMs` の内数である。
 
 ## POST /translate

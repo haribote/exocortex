@@ -7,10 +7,14 @@ import {
 } from './limits.js'
 
 describe('limits', () => {
+  // The reserve is retuned whenever the measured thinking overhead moves, so
+  // what is pinned is the relationship rather than the number: the reserve
+  // comes out of the same window the input has to fit in.
   it('reserves output tokens out of the context window', () => {
     expect(MAX_CONTEXT_TOKENS).toBe(32768)
-    expect(RESERVED_OUTPUT_TOKENS).toBe(4096)
-    expect(MAX_INPUT_TOKENS).toBe(28672)
+    expect(RESERVED_OUTPUT_TOKENS).toBeGreaterThan(0)
+    expect(RESERVED_OUTPUT_TOKENS).toBeLessThan(MAX_CONTEXT_TOKENS)
+    expect(MAX_INPUT_TOKENS).toBe(MAX_CONTEXT_TOKENS - RESERVED_OUTPUT_TOKENS)
   })
 })
 

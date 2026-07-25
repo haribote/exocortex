@@ -75,8 +75,8 @@ export function buildOllamaPsScript(target: RemoteTarget): string {
 
 // The script travels on stdin, never on a command line. ssh hands the command
 // to the Windows default shell, where '<', '|' and '>' are metacharacters, and
-// REVIEW_THINK_PREFIX is literally "<|think|>". Keeping the argv to bare tokens
-// means no layer between here and bash has anything to misread.
+// a config value is free to contain them. Keeping the argv to bare tokens means
+// no layer between here and bash has anything to misread.
 export function sshArgs(target: RemoteTarget): string[] {
   if (!BARE_TOKEN.test(target.host)) {
     throw new Error(`ssh host must be a bare token: ${target.host}`)

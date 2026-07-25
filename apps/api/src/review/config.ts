@@ -6,7 +6,6 @@ export class ReviewConfigError extends Error {}
 
 export interface ReviewConfig {
   systemMode: ReviewSystemMode
-  thinkPrefix: string | undefined
   think: OllamaThink | undefined
   debugRaw: boolean
 }
@@ -57,12 +56,6 @@ export function parseReviewThink(
   return level
 }
 
-export function parseReviewThinkPrefix(
-  value: string | undefined,
-): string | undefined {
-  return value === undefined || value === '' ? undefined : value
-}
-
 export function parseReviewDebugRaw(value: string | undefined): boolean {
   const normalized = (value ?? '').trim().toLowerCase()
   if (normalized === '' || DEBUG_RAW_OFF.includes(normalized)) {
@@ -77,18 +70,8 @@ export function parseReviewDebugRaw(value: string | undefined): boolean {
 export function loadReviewConfig(
   env: Record<string, string | undefined>,
 ): ReviewConfig {
-  const systemMode = parseReviewSystemMode(env.REVIEW_SYSTEM_MODE)
-  const thinkPrefix = parseReviewThinkPrefix(env.REVIEW_THINK_PREFIX)
-
-  if (thinkPrefix !== undefined && systemMode !== 'prefix') {
-    throw new ReviewConfigError(
-      'REVIEW_THINK_PREFIX is set but REVIEW_SYSTEM_MODE is not "prefix": the prefix only reaches the model through the system message, so it would be silently dropped',
-    )
-  }
-
   return {
-    systemMode,
-    thinkPrefix,
+    systemMode: parseReviewSystemMode(env.REVIEW_SYSTEM_MODE),
     think: parseReviewThink(env.REVIEW_THINK),
     debugRaw: parseReviewDebugRaw(env.REVIEW_DEBUG_RAW),
   }

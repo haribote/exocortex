@@ -89,7 +89,6 @@ describe('docker-compose.yml', () => {
     const environment = getEnvironment(aiApi)
     for (const name of [
       'REVIEW_SYSTEM_MODE',
-      'REVIEW_THINK_PREFIX',
       'REVIEW_THINK',
       'REVIEW_DEBUG_RAW',
     ]) {
@@ -98,6 +97,14 @@ describe('docker-compose.yml', () => {
         `ai-api must receive ${name}: the eval harness sets it on the host, and compose only forwards variables the service declares`,
       ).toBe(`\${${name}:-}`)
     }
+  })
+
+  it('passes no REVIEW_THINK_PREFIX to ai-api', () => {
+    const environment = getEnvironment(aiApi)
+    expect(
+      environment.REVIEW_THINK_PREFIX,
+      'gemma4:12b measured identical with and without the prefix, so the api no longer reads it: forwarding it would advertise a knob that does nothing',
+    ).toBeUndefined()
   })
 
   it('sets OLLAMA_CONTEXT_LENGTH and OLLAMA_KV_CACHE_TYPE for the 32K + q8_0 VRAM budget', () => {

@@ -11,7 +11,6 @@ export interface AppDeps {
   translateModel: string
   buildReviewInput?: BuildReviewInput
   reviewSystemMode?: ReviewSystemMode
-  reviewThinkPrefix?: string
   reviewThink?: OllamaThink
   reviewDebugRaw?: boolean
   heartbeatMs?: number
@@ -28,7 +27,6 @@ export function createApp(deps: AppDeps): Hono {
     model: deps.reviewModel,
     buildInput: deps.buildReviewInput,
     systemMode: deps.reviewSystemMode,
-    thinkPrefix: deps.reviewThinkPrefix,
     think: deps.reviewThink,
     debugRaw: deps.reviewDebugRaw,
   })

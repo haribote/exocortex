@@ -15,17 +15,18 @@ import {
   waitForHealth,
 } from './switch.ts'
 
-// No config in configs.json sets REVIEW_THINK_PREFIX any more: the value turned
-// out to have no effect, and thinking is controlled by REVIEW_THINK instead.
-// This config stays as a regression test for the escaping, because "<|think|>"
-// is made entirely of characters that cmd.exe and bash would otherwise act on.
 const thinky: EvalConfig = {
   id: 'C1',
-  env: {
-    REVIEW_MODEL: 'gemma4:12b',
-    REVIEW_SYSTEM_MODE: 'prefix',
-    REVIEW_THINK_PREFIX: '<|think|>',
-  },
+  env: { REVIEW_MODEL: 'gemma4:12b', REVIEW_THINK: 'true' },
+}
+
+// No knob carries a value like this today: "<|think|>" came from a setting that
+// was measured to change nothing and then removed. It stays here as a fixture
+// because it is made entirely of characters cmd.exe and bash would act on,
+// which is exactly what the quoting has to survive.
+const metacharacters: EvalConfig = {
+  id: 'quoting',
+  env: { REVIEW_MODEL: 'gemma4:12b', SHELL_PROBE: '<|think|>' },
 }
 
 function fakeDeps(overrides: Partial<SwitchDeps> = {}): SwitchDeps {
@@ -55,11 +56,11 @@ describe('shellQuote', () => {
 
 describe('buildSwitchScript', () => {
   it('quotes every value, including one full of shell metacharacters', () => {
-    expect(buildSwitchScript(thinky, DEFAULT_TARGET)).toBe(
+    expect(buildSwitchScript(metacharacters, DEFAULT_TARGET)).toBe(
       [
         'set -eu',
         "cd '/home/haribote/exocortex'",
-        "REVIEW_MODEL='gemma4:12b' REVIEW_SYSTEM_MODE='prefix' REVIEW_THINK_PREFIX='<|think|>' docker compose up -d 'ai-api'",
+        "REVIEW_MODEL='gemma4:12b' SHELL_PROBE='<|think|>' docker compose up -d 'ai-api'",
         '',
       ].join('\n'),
     )
@@ -67,16 +68,12 @@ describe('buildSwitchScript', () => {
 
   it('orders assignments by name so the same config yields the same script', () => {
     const shuffled: EvalConfig = {
-      id: 'C1',
-      env: {
-        REVIEW_THINK_PREFIX: '<|think|>',
-        REVIEW_MODEL: 'gemma4:12b',
-        REVIEW_SYSTEM_MODE: 'prefix',
-      },
+      id: 'quoting',
+      env: { SHELL_PROBE: '<|think|>', REVIEW_MODEL: 'gemma4:12b' },
     }
 
     expect(buildSwitchScript(shuffled, DEFAULT_TARGET)).toBe(
-      buildSwitchScript(thinky, DEFAULT_TARGET),
+      buildSwitchScript(metacharacters, DEFAULT_TARGET),
     )
   })
 
@@ -177,7 +174,7 @@ describe('loadConfigs', () => {
     }
   })
 
-  it('contrasts thinking through REVIEW_THINK, not a system prompt prefix', () => {
+  it('contrasts thinking through REVIEW_THINK', () => {
     const byId = new Map(configs.map((config) => [config.id, config.env]))
 
     expect(byId.get('C1')).toEqual({ REVIEW_MODEL: 'gemma4:12b' })
@@ -185,9 +182,6 @@ describe('loadConfigs', () => {
       REVIEW_MODEL: 'gemma4:12b',
       REVIEW_THINK: 'false',
     })
-    for (const config of configs) {
-      expect(config.env.REVIEW_THINK_PREFIX, config.id).toBeUndefined()
-    }
   })
 
   it('builds a usable script for every config', () => {
@@ -214,7 +208,7 @@ describe('applyConfig', () => {
     expect(entry.status).toBe('ok')
     expect(entry.reportedModel).toBe('gemma4:12b')
     expect(entry.warmUpMs).toBe(42_000)
-    expect(seen[0]?.script).toContain("REVIEW_THINK_PREFIX='<|think|>'")
+    expect(seen[0]?.script).toContain("REVIEW_MODEL='gemma4:12b'")
     expect(seen[0]?.args).toEqual(['exocortex', 'wsl -d exocortex -- bash -s'])
     expect(seen[1]?.script).toContain('ollama ps')
   })
@@ -313,7 +307,7 @@ describe('renderEnvironmentEntry', () => {
     })
 
     expect(markdown).toContain('## C1')
-    expect(markdown).toContain('REVIEW_THINK_PREFIX=<|think|>')
+    expect(markdown).toContain('REVIEW_MODEL=gemma4:12b REVIEW_THINK=true')
     expect(markdown).toContain('レイテンシ比較から除外')
   })
 

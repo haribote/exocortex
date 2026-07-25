@@ -27,10 +27,9 @@ services:
       - "127.0.0.1:11435:11435"
     environment:
       OLLAMA_URL: http://ollama:11434
-      REVIEW_MODEL: ${REVIEW_MODEL:-qwen3:14b}
+      REVIEW_MODEL: ${REVIEW_MODEL:-gemma4:12b}
       TRANSLATE_MODEL: ${TRANSLATE_MODEL:-translategemma:12b}
       REVIEW_SYSTEM_MODE: ${REVIEW_SYSTEM_MODE:-}
-      REVIEW_THINK_PREFIX: ${REVIEW_THINK_PREFIX:-}
       REVIEW_THINK: ${REVIEW_THINK:-}
       REVIEW_DEBUG_RAW: ${REVIEW_DEBUG_RAW:-}
     depends_on:

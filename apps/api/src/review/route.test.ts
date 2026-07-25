@@ -24,7 +24,7 @@ import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 
 type ReviewKnobs = Pick<
   AppDeps,
-  'reviewSystemMode' | 'reviewThinkPrefix' | 'reviewThink' | 'reviewDebugRaw'
+  'reviewSystemMode' | 'reviewThink' | 'reviewDebugRaw'
 >
 
 function fakeOllama(
@@ -305,27 +305,14 @@ describe('POST /review model knobs', () => {
     expect(captured.system).toBeUndefined()
   })
 
+  // "prefix" names where the instruction goes, not a string prepended to it:
+  // the system message is SYSTEM_INSTRUCTION verbatim, with nothing in front.
+  // Thinking is turned on by REVIEW_THINK, never by a marker in this message.
   it('splits the instruction into a system message when systemMode is prefix', async () => {
     const captured = await capture({ reviewSystemMode: 'prefix' })
 
     expect(captured.system).toBe(SYSTEM_INSTRUCTION)
     expect(captured.prompt).toBe(buildReviewBody(okInput.input))
-  })
-
-  it('prepends the think prefix to the system message', async () => {
-    const captured = await capture({
-      reviewSystemMode: 'prefix',
-      reviewThinkPrefix: 'Reasoning: high\n',
-    })
-
-    expect(captured.system).toBe(`Reasoning: high\n${SYSTEM_INSTRUCTION}`)
-  })
-
-  it('ignores the think prefix while systemMode is none', async () => {
-    const captured = await capture({ reviewThinkPrefix: 'Reasoning: high\n' })
-
-    expect(captured.prompt).toBe(buildReviewPrompt(okInput.input))
-    expect(captured.system).toBeUndefined()
   })
 
   it('passes think through to ollama', async () => {

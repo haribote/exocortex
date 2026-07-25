@@ -29,7 +29,6 @@ export interface ReviewDeps {
   model: string
   buildInput?: BuildReviewInput
   systemMode?: ReviewSystemMode
-  thinkPrefix?: string
   think?: OllamaThink
   debugRaw?: boolean
 }
@@ -59,7 +58,7 @@ function buildChatRequest(
     temperature: 0,
   }
   if (deps.systemMode === 'prefix') {
-    request.system = `${deps.thinkPrefix ?? ''}${SYSTEM_INSTRUCTION}`
+    request.system = SYSTEM_INSTRUCTION
   }
   if (deps.think !== undefined) {
     request.think = deps.think

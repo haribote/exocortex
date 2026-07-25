@@ -72,7 +72,7 @@ flowchart LR
 | GPU      | NVIDIA 製、VRAM 16GB 以上                                                  | RTX 5080     |
 | Windows  | 11 22H2 以降                                                               |              |
 | WSL2     | Docker Engine + Compose を動かすディストロ                                 | Ubuntu       |
-| モデル   | `qwen3:14b`（コードレビュー）、`translategemma:12b`（日英翻訳）            |              |
+| モデル   | `gemma4:12b`（コードレビュー）、`translategemma:12b`（日英翻訳）           |              |
 | ディスク | 60GB 以上（モデル 2 本で 16GB、Docker のイメージとビルドキャッシュを含む） |              |
 
 VRAM 16GB では両方のモデルを同時に常駐させられないため、Ollama 側で用途ごとに切り替る。
