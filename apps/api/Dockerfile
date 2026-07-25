@@ -4,6 +4,9 @@ RUN corepack enable
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/contract/package.json ./packages/contract/
 COPY apps/api/package.json ./apps/api/
+# The manifest alone: a frozen install validates every importer in the lockfile,
+# but the eval harness itself is never built or shipped in this image.
+COPY evals/package.json ./evals/
 RUN pnpm install --frozen-lockfile
 COPY packages/contract ./packages/contract
 COPY apps/api ./apps/api

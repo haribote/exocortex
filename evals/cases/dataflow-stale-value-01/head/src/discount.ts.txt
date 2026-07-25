@@ -1,0 +1,9 @@
+export interface Campaign {
+  code: string
+  percentOff: number
+}
+
+export function applyDiscount(amount: number, campaign: Campaign): number {
+  const off = Math.floor((amount * campaign.percentOff) / 100)
+  return amount - off
+}

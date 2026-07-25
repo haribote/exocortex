@@ -1,0 +1,13 @@
+const RATES: Record<string, number> = {
+  JPY: 1,
+  USD: 150,
+  EUR: 165,
+}
+
+export function convertToJpy(amount: number, currency: string): number {
+  const rate = RATES[currency]
+  if (rate === undefined) {
+    throw new Error(`unknown currency: ${currency}`)
+  }
+  return Math.round(amount * rate)
+}

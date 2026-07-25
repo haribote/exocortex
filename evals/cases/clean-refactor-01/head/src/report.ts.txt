@@ -1,0 +1,12 @@
+export interface Row {
+  label: string
+  value: number
+}
+
+function formatRow(row: Row): string {
+  return `${row.label}: ${row.value}\n`
+}
+
+export function formatRows(rows: readonly Row[]): string {
+  return rows.map(formatRow).join('')
+}

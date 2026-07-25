@@ -1,0 +1,8 @@
+import { applyDiscount, type Campaign } from './discount.js'
+import type { Order } from './order.js'
+import { convertToJpy } from './rates.js'
+
+export function invoiceTotal(order: Order, campaign: Campaign): number {
+  const amount = applyDiscount(order.amount, campaign)
+  return convertToJpy(order.amount, order.currency)
+}

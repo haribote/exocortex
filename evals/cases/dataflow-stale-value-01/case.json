@@ -1,0 +1,17 @@
+{
+  "id": "dataflow-stale-value-01",
+  "category": "dataflow",
+  "mode": "worktree",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/invoice.ts",
+      "anchor": "return convertToJpy(order.amount, order.currency)",
+      "span": 1,
+      "summary": "割引後の amount ではなく割引前の order.amount を換算に渡しているため、割引が請求額に反映されない",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "a9d124c で使った 3 問のうちの 1 つ (引数ではなく古い値を参照する誤り)",
+  "clean": false
+}
