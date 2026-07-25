@@ -1,0 +1,103 @@
+import { InvalidQuoteError } from '../pricing/errors.js'
+import { sumMinor } from '../pricing/money.js'
+import { buildQuote } from '../pricing/quote.js'
+import type { Catalog, Quote, QuoteRequest, Region } from '../pricing/types.js'
+
+export interface LedgerRow {
+  quoteRef: string
+  account: string
+  side: 'debit' | 'credit'
+  amountMinor: number
+  currency: string
+  memo: string
+}
+
+interface RegionAccounts {
+  receivable: string
+  revenue: string
+  taxPayable: string
+}
+
+const ACCOUNTS_BY_REGION: Record<Region, RegionAccounts> = {
+  JP: { receivable: '1100-JP', revenue: '4000-JP', taxPayable: '2200-JP' },
+  US: { receivable: '1100-US', revenue: '4000-US', taxPayable: '2200-US' },
+  EU: { receivable: '1100-EU', revenue: '4000-EU', taxPayable: '2200-EU' },
+  UK: { receivable: '1100-UK', revenue: '4000-UK', taxPayable: '2200-UK' },
+}
+
+function accountsFor(region: Region): RegionAccounts {
+  const accounts = ACCOUNTS_BY_REGION[region]
+  if (!accounts) {
+    throw new InvalidQuoteError(`no ledger accounts mapped for region: ${region}`)
+  }
+  return accounts
+}
+
+function assertBalanced(rows: readonly LedgerRow[], quoteRef: string): void {
+  const debits = sumMinor(rows.filter((row) => row.side === 'debit').map((row) => row.amountMinor))
+  const credits = sumMinor(rows.filter((row) => row.side === 'credit').map((row) => row.amountMinor))
+  if (debits !== credits) {
+    throw new InvalidQuoteError(
+      `ledger entry for ${quoteRef} is unbalanced: debits=${debits} credits=${credits}`,
+    )
+  }
+}
+
+export function quoteToLedgerRows(quote: Quote, region: Region): LedgerRow[] {
+  const accounts = accountsFor(region)
+  const quoteRef = `quote:${quote.customerId}:${quote.catalogRevision}`
+
+  const rows: LedgerRow[] = [
+    {
+      quoteRef,
+      account: accounts.receivable,
+      side: 'debit',
+      amountMinor: quote.totalMinor,
+      currency: quote.currency,
+      memo: 'customer receivable',
+    },
+    {
+      quoteRef,
+      account: accounts.revenue,
+      side: 'credit',
+      amountMinor: quote.subtotalMinor - quote.discountMinor,
+      currency: quote.currency,
+      memo: 'recognized revenue',
+    },
+    {
+      quoteRef,
+      account: accounts.taxPayable,
+      side: 'credit',
+      amountMinor: quote.taxMinor,
+      currency: quote.currency,
+      memo: 'tax collected',
+    },
+  ]
+
+  assertBalanced(rows, quoteRef)
+  return rows
+}
+
+export function priceAndExportRow(
+  request: QuoteRequest,
+  catalog: Catalog,
+  region: Region,
+): LedgerRow[] {
+  const quote = buildQuote(request, catalog)
+  return quoteToLedgerRows(quote, region)
+}
+
+function escapeCsvField(value: string): string {
+  if (!/[",\n]/.test(value)) return value
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+export function toCsv(rows: readonly LedgerRow[]): string {
+  const header = ['quoteRef', 'account', 'side', 'amountMinor', 'currency', 'memo']
+  const lines = rows.map((row) =>
+    [row.quoteRef, row.account, row.side, String(row.amountMinor), row.currency, row.memo]
+      .map(escapeCsvField)
+      .join(','),
+  )
+  return [header.join(','), ...lines].join('\n')
+}

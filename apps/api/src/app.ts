@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import type { OllamaClient } from './ollama.js'
+import type { OllamaClient, OllamaThink } from './ollama.js'
+import type { ReviewSystemMode } from './review/config.js'
 import type { BuildReviewInput } from './review/input.js'
 import { registerReviewRoute } from './review/route.js'
 import { registerTranslateRoute } from './translate/route.js'
@@ -9,6 +10,9 @@ export interface AppDeps {
   reviewModel: string
   translateModel: string
   buildReviewInput?: BuildReviewInput
+  reviewSystemMode?: ReviewSystemMode
+  reviewThink?: OllamaThink
+  reviewDebugRaw?: boolean
   heartbeatMs?: number
   headersGraceMs?: number
 }
@@ -22,6 +26,9 @@ export function createApp(deps: AppDeps): Hono {
     ollama: deps.ollama,
     model: deps.reviewModel,
     buildInput: deps.buildReviewInput,
+    systemMode: deps.reviewSystemMode,
+    think: deps.reviewThink,
+    debugRaw: deps.reviewDebugRaw,
   })
   registerTranslateRoute(app, {
     ollama: deps.ollama,

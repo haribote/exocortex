@@ -1,0 +1,52 @@
+import {
+  type QuotaStatus,
+  USAGE_TTL_SECONDS,
+  quotaStatus,
+  usageKey,
+} from './quota.js'
+import type { KeyValueStore } from './store.js'
+
+export interface UsageEvent {
+  tenantId: string
+  month: string
+  endpoint: string
+  tokens: number
+}
+
+export interface UsageSnapshot {
+  total: number
+  byEndpoint: Record<string, number>
+}
+
+function decodeSnapshot(raw: string | null): UsageSnapshot {
+  if (raw === null) return { total: 0, byEndpoint: {} }
+  return JSON.parse(raw) as UsageSnapshot
+}
+
+function addUsage(
+  snapshot: UsageSnapshot,
+  endpoint: string,
+  tokens: number,
+): UsageSnapshot {
+  return {
+    total: snapshot.total + tokens,
+    byEndpoint: {
+      ...snapshot.byEndpoint,
+      [endpoint]: (snapshot.byEndpoint[endpoint] ?? 0) + tokens,
+    },
+  }
+}
+
+export class UsageMeter {
+  constructor(private readonly store: KeyValueStore) {}
+
+  async record(event: UsageEvent): Promise<QuotaStatus> {
+    const key = usageKey(event.tenantId, event.month)
+    const snapshot = decodeSnapshot(await this.store.get(key))
+    const next = addUsage(snapshot, event.endpoint, event.tokens)
+
+    await this.store.set(key, JSON.stringify(next))
+    await this.store.expire(key, USAGE_TTL_SECONDS)
+    return quotaStatus(next.total)
+  }
+}

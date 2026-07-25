@@ -1,0 +1,12 @@
+export interface Row {
+  label: string
+  value: number
+}
+
+export function formatRows(rows: readonly Row[]): string {
+  let out = ''
+  for (const row of rows) {
+    out += row.label + ': ' + String(row.value) + '\n'
+  }
+  return out
+}

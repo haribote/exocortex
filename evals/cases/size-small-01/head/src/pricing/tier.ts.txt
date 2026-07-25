@@ -1,0 +1,46 @@
+import { scaleMinor } from './money.js'
+import type { TierId } from './types.js'
+import { pricingConfig } from '../config/pricing.js'
+
+export interface TierRule {
+  id: TierId
+  percentOff: number
+  minQuantity: number
+  label: string
+}
+
+export const TIER_RULES: Record<TierId, TierRule> = {
+  free: { id: 'free', percentOff: 0, minQuantity: 0, label: 'Free' },
+  starter: { id: 'starter', percentOff: 5, minQuantity: 5, label: 'Starter' },
+  growth: { id: 'growth', percentOff: 12, minQuantity: 25, label: 'Growth' },
+  scale: { id: 'scale', percentOff: 20, minQuantity: 100, label: 'Scale' },
+}
+
+export function ruleFor(tier: TierId): TierRule {
+  return TIER_RULES[tier]
+}
+
+export function qualifies(tier: TierId, quantity: number): boolean {
+  return quantity >= TIER_RULES[tier].minQuantity
+}
+
+// Takes minor units and returns minor units. The tier discount never changes
+// the unit the amount is expressed in.
+export function applyTier(
+  subtotalMinor: number,
+  tier: TierId,
+  quantity: number,
+): number {
+  if (!pricingConfig.tierDiscountsEnabled) return subtotalMinor
+  if (!qualifies(tier, quantity)) return subtotalMinor
+
+  const rule = ruleFor(tier)
+  const off = scaleMinor(subtotalMinor, rule.percentOff / 100)
+  return subtotalMinor - off
+}
+
+export function nextTier(tier: TierId): TierId | undefined {
+  const order: TierId[] = ['free', 'starter', 'growth', 'scale']
+  const index = order.indexOf(tier)
+  return index < 0 ? undefined : order[index + 1]
+}

@@ -1,0 +1,29 @@
+export type InventoryEventType =
+  | 'received'
+  | 'reserved'
+  | 'released'
+  | 'shipped'
+
+export interface InventoryEvent {
+  id: string
+  sku: string
+  type: InventoryEventType
+  quantity: number
+}
+
+export interface InventoryState {
+  onHand: Map<string, number>
+  reserved: Map<string, number>
+}
+
+export function emptyState(): InventoryState {
+  return { onHand: new Map(), reserved: new Map() }
+}
+
+export function bump(
+  counts: Map<string, number>,
+  sku: string,
+  delta: number,
+): void {
+  counts.set(sku, (counts.get(sku) ?? 0) + delta)
+}

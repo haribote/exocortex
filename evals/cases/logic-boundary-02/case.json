@@ -1,0 +1,17 @@
+{
+  "id": "logic-boundary-02",
+  "category": "logic",
+  "mode": "base",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/pricing.ts",
+      "anchor": "(candidate) => seats > candidate.minSeats && seats <= candidate.maxSeats,",
+      "span": 1,
+      "summary": "下限の比較が排他になっており、各ティアの最小席数 (1, 11, 51) がそのティアに入らない。1 席はどのティアにも一致せず例外になる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。順序依存の find を明示的な範囲判定に置き換えるリファクタで、上限だけ包含・下限だけ排他になるという実務でよくある型をモデル化した",
+  "clean": false
+}

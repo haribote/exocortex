@@ -1,0 +1,80 @@
+import { roundHalfUp } from './rounding.js'
+import type { Region, TaxBreakdown } from './types.js'
+
+const RATES: Record<Region, number> = {
+  JP: 0.1,
+  US: 0.0725,
+  EU: 0.21,
+  UK: 0.2,
+}
+
+const LABELS: Record<Region, string> = {
+  JP: 'Consumption tax',
+  US: 'Sales tax',
+  EU: 'VAT',
+  UK: 'VAT',
+}
+
+const REVERSE_CHARGE_REGIONS: readonly Region[] = ['EU']
+
+export function taxRateFor(region: Region): number {
+  return RATES[region]
+}
+
+export function taxLabelFor(region: Region): string {
+  return LABELS[region]
+}
+
+export function isReverseCharge(region: Region, hasVatId: boolean): boolean {
+  return hasVatId && REVERSE_CHARGE_REGIONS.includes(region)
+}
+
+export function taxOn(taxableMinor: number, region: Region): number {
+  return roundHalfUp(taxableMinor * taxRateFor(region))
+}
+
+export function breakdownFor(
+  taxableMinor: number,
+  region: Region,
+): TaxBreakdown {
+  return {
+    region,
+    rate: taxRateFor(region),
+    taxableMinor,
+    taxMinor: taxOn(taxableMinor, region),
+  }
+}
+
+export function grossOf(taxableMinor: number, region: Region): number {
+  return taxableMinor + taxOn(taxableMinor, region)
+}
+
+export function netOf(grossMinor: number, region: Region): number {
+  return roundHalfUp(grossMinor / (1 + taxRateFor(region)))
+}
+
+export function mergeBreakdowns(
+  breakdowns: readonly TaxBreakdown[],
+): TaxBreakdown[] {
+  const byRegion = new Map<Region, TaxBreakdown>()
+
+  for (const breakdown of breakdowns) {
+    const current = byRegion.get(breakdown.region)
+    if (!current) {
+      byRegion.set(breakdown.region, { ...breakdown })
+      continue
+    }
+    byRegion.set(breakdown.region, {
+      ...current,
+      taxableMinor: current.taxableMinor + breakdown.taxableMinor,
+      taxMinor: current.taxMinor + breakdown.taxMinor,
+    })
+  }
+
+  return [...byRegion.values()].sort((a, b) => a.region.localeCompare(b.region))
+}
+
+export function describe(breakdown: TaxBreakdown): string {
+  const percent = (breakdown.rate * 100).toFixed(2)
+  return `${taxLabelFor(breakdown.region)} ${percent}%`
+}

@@ -1,0 +1,34 @@
+# Pricing pipeline
+
+A quote is built in one pass through `src/pricing/quote.ts`.
+The stages are fixed and each one hands minor units to the next.
+
+1. **Validate** the request. Quantity must be a positive integer within
+   `MAX_LINE_QUANTITY`.
+2. **Resolve** the catalog entry with `entryFor`. Retired SKUs raise
+   `InactiveSkuError`.
+3. **Scale** the catalog's major-unit `unitAmount` into minor units. This is the
+   one and only conversion in the pipeline.
+4. **Discount** with `applyTier` from `src/pricing/tier.ts`. It takes minor units
+   and returns minor units.
+5. **Tax** the discounted amount with the region rate from `src/pricing/tax.ts`.
+6. **Assemble** the `Quote`.
+
+## Why the unit rule matters
+
+The catalog stores major units because that is what finance edits.
+Everything downstream — the invoice service, the revenue report, the ledger
+export — assumes integers in minor units.
+A second call to `toMinorUnits` on an already-scaled value multiplies the amount
+by 100 in `USD` and `EUR` and by 1 in `JPY`.
+
+The failure is quiet. The quote still returns, the invoice still posts, and the
+mistake only shows up when a customer reads the tax line.
+
+## Tier discounts
+
+Tier rules live in `src/pricing/tier.ts` and are keyed by `TierId`.
+A tier applies only when the line quantity reaches its `minQuantity`, so a
+`scale` customer buying two seats pays the list price.
+`TIER_DISCOUNTS_ENABLED=0` turns the stage into a pass-through, which is how the
+pricing team ships a rule change dark.

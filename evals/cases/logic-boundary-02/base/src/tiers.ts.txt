@@ -1,0 +1,11 @@
+export interface PriceTier {
+  id: string
+  maxSeats: number
+  unitPrice: number
+}
+
+export const PRICE_TIERS: readonly PriceTier[] = [
+  { id: 'starter', maxSeats: 10, unitPrice: 1200 },
+  { id: 'team', maxSeats: 50, unitPrice: 980 },
+  { id: 'business', maxSeats: 200, unitPrice: 820 },
+]

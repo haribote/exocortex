@@ -1,0 +1,28 @@
+import { type InventoryEvent, type InventoryState, bump } from './events.js'
+import { type ReadModel, snapshotOf } from './read-model.js'
+
+export type Handler = (
+  state: InventoryState,
+  event: InventoryEvent,
+  readModel: ReadModel,
+) => Promise<void>
+
+export const handlers: Record<string, Handler> = {
+  received: async (state, event, readModel) => {
+    bump(state.onHand, event.sku, event.quantity)
+    await readModel.publish(snapshotOf(state, event.sku))
+  },
+  reserved: async (state, event, readModel) => {
+    bump(state.reserved, event.sku, event.quantity)
+    await readModel.publish(snapshotOf(state, event.sku))
+  },
+  released: async (state, event, readModel) => {
+    bump(state.reserved, event.sku, -event.quantity)
+    await readModel.publish(snapshotOf(state, event.sku))
+  },
+  shipped: async (state, event, readModel) => {
+    bump(state.reserved, event.sku, -event.quantity)
+    bump(state.onHand, event.sku, -event.quantity)
+    await readModel.publish(snapshotOf(state, event.sku))
+  },
+}

@@ -1,0 +1,31 @@
+# meterly
+
+Usage-based billing for the meterly platform.
+Quotes, invoices, and the revenue reports that read them all live here.
+
+## Money
+
+**Every amount that crosses a module boundary is in minor units.**
+A value is converted to minor units exactly once, at the edge where it enters
+the pricing pipeline, and stays that way until it is formatted for display.
+
+- `toMinorUnits` is the only place a major-unit amount becomes a minor-unit one.
+  Call it on catalog and API input, never on a value another pricing function
+  returned.
+- Anything named `*Minor` is already scaled. Do not scale it again.
+- `JPY` has an exponent of 0, so a double conversion is invisible in JPY and
+  wrong by a factor of 100 in `USD` and `EUR`. Do not rely on JPY tests to catch
+  unit mistakes.
+
+## Layout
+
+- `src/pricing/` is pure. No I/O, no clock reads other than what is passed in.
+- `src/services/` composes pricing with persistence.
+- `src/api/` translates HTTP to service calls and back.
+- `src/config/` reads the environment once at import time.
+
+## Style
+
+- Named exports only.
+- Relative imports carry the `.js` extension.
+- Errors thrown out of `src/pricing/` are subclasses of `PricingError`.

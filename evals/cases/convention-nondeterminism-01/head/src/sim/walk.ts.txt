@@ -1,0 +1,22 @@
+import { createRng } from './rng.js'
+
+export interface Point {
+  x: number
+  y: number
+}
+
+export function walk(seed: number, steps: number, jitter = 0): Point[] {
+  const rng = createRng(seed)
+  const points: Point[] = []
+  let x = 0
+  let y = 0
+
+  for (let step = 0; step < steps; step++) {
+    const noise = Math.random() * jitter
+    x += rng.next() - 0.5 + noise
+    y += rng.next() - 0.5
+    points.push({ x, y })
+  }
+
+  return points
+}

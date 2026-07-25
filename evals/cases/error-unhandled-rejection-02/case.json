@@ -1,0 +1,17 @@
+{
+  "id": "error-unhandled-rejection-02",
+  "category": "error-handling",
+  "mode": "base",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/orders/checkout.ts",
+      "anchor": "creditLoyaltyPoints(order.customerId, receipt)",
+      "span": 1,
+      "summary": "creditLoyaltyPoints の await が抜けている。ポイント付与が失敗しても completeCheckout は成功として返り、reject は誰にも捕まらず unhandled rejection になる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。実在の公開コミットは出典にしていない。既存の await 付きの呼び出しの並びに、新しい async 関数の呼び出しだけ await を付け忘れて足す、という実務でよくある型をモデル化した",
+  "clean": false
+}

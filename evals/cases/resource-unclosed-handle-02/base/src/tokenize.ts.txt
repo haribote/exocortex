@@ -1,0 +1,5 @@
+const WORD = /[\p{L}\p{N}]+/gu
+
+export function tokenize(body: string): string[] {
+  return [...body.toLowerCase().matchAll(WORD)].map((match) => match[0])
+}

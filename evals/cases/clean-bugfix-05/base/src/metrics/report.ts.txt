@@ -1,0 +1,13 @@
+import { medianLatency } from './latency.ts'
+
+export interface RouteLatency {
+  route: string
+  samples: number[]
+}
+
+export function formatRouteLatency(latency: RouteLatency): string {
+  const median = medianLatency(latency.samples)
+  if (median === null) return `${latency.route}: no samples`
+
+  return `${latency.route}: ${median} ms`
+}

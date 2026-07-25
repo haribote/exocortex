@@ -320,7 +320,7 @@ ssh exocortex "wsl -l -v"
 一覧にあるディストロの `NAME` が `<distro>` である。
 Docker と systemd をこれから導入するので、まだ何も入っていないディストロでも構わない。
 
-> **Tips** モデルは `qwen3:14b` と `translategemma:12b` の 2 本で 16GB を超え、Docker のイメージと
+> **Tips** モデルは `gemma4:12b` と `translategemma:12b` の 2 本で 16GB を超え、Docker のイメージと
 > ビルドキャッシュも加わる。C: の空き容量が気になる場合は、別ドライブに専用のディストロを新設する
 > という選択肢もある。
 > なおその場合は、 NVMe 接続の十分に早い SSD を選ぶことを推奨する
@@ -622,7 +622,7 @@ ls docker-compose.yml
 ```bash
 # クライアント（SSH 経由、ディストロ内）
 docker compose up -d
-docker compose exec ollama ollama pull qwen3:14b
+docker compose exec ollama ollama pull gemma4:12b
 docker compose exec ollama ollama pull translategemma:12b
 ```
 
@@ -651,15 +651,17 @@ curl http://localhost:11435/health
 
 **実行**
 
-レビューを 1 回投げてモデルをロードさせる。
+コードレビュー用モデルを一度ロードさせてから、割り当てを見る。
 
 ```bash
 # クライアント（SSH 経由、ディストロ内）
-curl -X POST http://localhost:11435/review \
-  -H 'Content-Type: application/json' \
-  -d '{"language":"typescript","diff":"diff --git a/a.ts b/a.ts\n+const x = 1\n"}'
+docker compose exec ollama ollama run gemma4:12b "ok" > /dev/null
 docker compose exec ollama ollama ps
 ```
+
+`ollama ps` はロード中のモデルだけを並べる。
+`OLLAMA_KEEP_ALIVE` を `5m` にしているため、最後のリクエストから 5 分が過ぎると一覧は空になる。
+空だった場合は、ロードからやり直す。
 
 **確認**
 

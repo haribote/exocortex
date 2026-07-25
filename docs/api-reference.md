@@ -56,7 +56,7 @@ root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 tar --no-mac-metadata -czf "$tmp/snapshot.tgz" -C "$root" \
   --null -T <(git -C "$root" ls-files -z --cached --others --exclude-standard) .git
-curl -sf \
+curl -sS --fail-with-body \
   -F 'params={"language":"typescript","base":"main"}' \
   -F "snapshot=@$tmp/snapshot.tgz;type=application/gzip" \
   "$EXOCORTEX_ENDPOINT/review"
@@ -78,11 +78,15 @@ rm -rf "$tmp"
     { "severity": "major", "file": "src/foo.ts", "line": 42, "quote": "...", "message": "..." }
   ],
   "meta": {
-    "model": "qwen3:14b",
+    "model": "gemma4:12b",
     "inputTokens": 12043,
     "durationMs": 18234,
     "droppedComments": 1,
-    "droppedContextFiles": 2
+    "droppedContextFiles": 2,
+    "promptEvalTokens": 11890,
+    "outputTokens": 512,
+    "thinkingChars": 5286,
+    "loadDurationMs": 5600
   }
 }
 ```
@@ -92,6 +96,17 @@ rm -rf "$tmp"
 その破棄数が `meta.droppedComments` である。
 `meta.droppedContextFiles` は、予算に収めるためにサーバーが落とした context ファイルの数である。
 
+`meta` の末尾 4 つは Ollama が実測値を返したときだけ現れる。
+`promptEvalTokens` と `outputTokens` はモデルが実際に消費した入力トークン数と出力トークン数である。
+`inputTokens` がサーバー側の見積もりであるのに対し、こちらはモデルの実測値なので、見積もりの精度を確かめるのに使える。
+
+`thinkingChars` は、モデルが応答の前に挟んだ思考テキストの長さである。
+`gemma4:12b` の思考は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを上回る。
+`outputTokens` のほうは思考を数えない。
+`/review` は常に `format` に JSON schema を渡しており、その場合 Ollama は制約付き出力の分だけを数えるためである。
+
+`loadDurationMs` はモデルのロードに要した時間で、`durationMs` の内数である。
+
 ## POST /translate
 
 リポジトリを持たないので snapshot は要らない。
@@ -99,7 +114,7 @@ JSON を直接 POST する。レスポンスは NDJSON のストリームで返�
 バッファされないよう `curl` には `-N` を付ける。
 
 ```bash
-curl -Nsf -H 'Content-Type: application/json' \
+curl -NsS --fail-with-body -H 'Content-Type: application/json' \
   -d '{"text":"こんにちは","from":"ja","to":"en"}' \
   "$EXOCORTEX_ENDPOINT/translate"
 # {"delta":"Hello"}
@@ -137,7 +152,18 @@ curl -Nsf -H 'Content-Type: application/json' \
 | 推論タイムアウト | 504 | `inference_timeout` |
 | snapshot 過大、または diff 単体が context 予算を超過 | 413 | `snapshot_too_large` / `context_too_large` |
 
+`invalid_model_output` は、モデルが JSON を返さなかったか、返した JSON が schema に合わなかったことを示す。
+サーバーの環境変数 `REVIEW_DEBUG_RAW` が有効なとき、この 502 のレスポンスは `raw` と `thinking` を追加で含む。
+`raw` はモデルの生出力、`thinking` は thinking モデルの思考テキストである。
+どちらも長い場合は先頭 1000 文字と末尾 1000 文字だけを残し、あいだを `...[truncated]...` に置き換える。
+JSON が壊れるのは常に末尾なので、末尾を捨てると原因が見えなくなるためである。
+既定では無効で、`thinking` はモデルが思考テキストを返したときだけ現れる。
+
 エラーの body は `{ "error": string, "message": string }` である。
+
+正規レシピが `--fail-with-body` を使うのは、この body を残したまま非ゼロ終了させるためである。
+`-f` だけでは body が捨てられ、`-s` がエラーメッセージまで抑えるため、`-sf` の組み合わせでは失敗の理由が何も残らない。
+どのステータスが返ったのかも分からなくなり、上表を引く手がかりが消える。
 
 `/translate` は、ストリームを開始する前の失敗（到達不可・即時のモデル不在など）は上表と同じ
 HTTP ステータス + JSON body で返す。開始後の失敗は同じ `error` slug を `error` 行として NDJSON に流す。

@@ -1,0 +1,98 @@
+import { loadCatalog } from '../pricing/catalog.js'
+import { sumMinor } from '../pricing/money.js'
+import { buildQuote } from '../pricing/quote.js'
+import type {
+  CurrencyCode,
+  Quote,
+  QuoteRequest,
+  Region,
+  TierId,
+} from '../pricing/types.js'
+import { pricingConfig } from '../config/pricing.js'
+import { info, timed } from '../observability/log.js'
+
+export interface SubscriptionLine {
+  sku: string
+  quantity: number
+}
+
+export interface Subscription {
+  id: string
+  customerId: string
+  tier: TierId
+  region: Region
+  currency: CurrencyCode
+  lines: readonly SubscriptionLine[]
+  startedAt: string
+  cancelledAt?: string
+}
+
+export interface SubscriptionTotal {
+  subscriptionId: string
+  currency: CurrencyCode
+  quotes: readonly Quote[]
+  subtotalMinor: number
+  discountMinor: number
+  taxMinor: number
+  totalMinor: number
+}
+
+export function isActive(subscription: Subscription, at: string): boolean {
+  if (subscription.startedAt > at) return false
+  return subscription.cancelledAt === undefined || subscription.cancelledAt > at
+}
+
+function requestFor(
+  subscription: Subscription,
+  line: SubscriptionLine,
+  at: string,
+): QuoteRequest {
+  return {
+    customerId: subscription.customerId,
+    sku: line.sku,
+    quantity: line.quantity,
+    tier: subscription.tier,
+    region: subscription.region,
+    requestedAt: at,
+  }
+}
+
+export function priceSubscription(
+  subscription: Subscription,
+  at: string,
+): SubscriptionTotal {
+  const catalog = loadCatalog(
+    subscription.currency,
+    pricingConfig.catalogRevision,
+  )
+
+  const quotes = timed('subscription.price', () =>
+    subscription.lines.map((line) =>
+      buildQuote(requestFor(subscription, line, at), catalog),
+    ),
+  )
+
+  const total: SubscriptionTotal = {
+    subscriptionId: subscription.id,
+    currency: subscription.currency,
+    quotes,
+    subtotalMinor: sumMinor(quotes.map((quote) => quote.subtotalMinor)),
+    discountMinor: sumMinor(quotes.map((quote) => quote.discountMinor)),
+    taxMinor: sumMinor(quotes.map((quote) => quote.taxMinor)),
+    totalMinor: sumMinor(quotes.map((quote) => quote.totalMinor)),
+  }
+
+  info('subscription.priced', {
+    subscriptionId: subscription.id,
+    lines: subscription.lines.length,
+    totalMinor: total.totalMinor,
+  })
+
+  return total
+}
+
+export function seatCount(subscription: Subscription): number {
+  return subscription.lines
+    .filter((line) => line.sku.startsWith('seat-'))
+    .reduce((count, line) => count + line.quantity, 0)
+}

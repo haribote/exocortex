@@ -1,0 +1,57 @@
+import type { CurrencyCode } from './types.js'
+
+// Exponents follow ISO 4217. JPY has no minor unit, so its scale is 1.
+export const MINOR_UNIT_EXPONENT: Record<CurrencyCode, number> = {
+  JPY: 0,
+  USD: 2,
+  EUR: 2,
+}
+
+const SYMBOLS: Record<CurrencyCode, string> = {
+  JPY: '¥',
+  USD: '$',
+  EUR: '€',
+}
+
+export function minorUnitScale(currency: CurrencyCode): number {
+  return 10 ** MINOR_UNIT_EXPONENT[currency]
+}
+
+export function toMinorUnits(amount: number, currency: CurrencyCode): number {
+  return Math.round(amount * minorUnitScale(currency))
+}
+
+export function toMajorUnits(minor: number, currency: CurrencyCode): number {
+  return minor / minorUnitScale(currency)
+}
+
+export function sumMinor(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0)
+}
+
+export function scaleMinor(minor: number, factor: number): number {
+  return Math.round(minor * factor)
+}
+
+export function splitMinor(minor: number, parts: number): number[] {
+  if (parts < 1) {
+    throw new RangeError(`parts must be positive: ${parts}`)
+  }
+  const share = Math.floor(minor / parts)
+  const remainder = minor - share * parts
+  return Array.from({ length: parts }, (_, index) =>
+    index < remainder ? share + 1 : share,
+  )
+}
+
+export function formatMoney(minor: number, currency: CurrencyCode): string {
+  const exponent = MINOR_UNIT_EXPONENT[currency]
+  const major = toMajorUnits(minor, currency)
+  return `${SYMBOLS[currency]}${major.toFixed(exponent)}`
+}
+
+export function assertMinorUnits(minor: number, where: string): void {
+  if (!Number.isInteger(minor)) {
+    throw new TypeError(`${where} expects minor units, got ${minor}`)
+  }
+}

@@ -1,0 +1,28 @@
+import type { InventoryEvent, InventoryState } from './events.js'
+import { handlers } from './handlers.js'
+
+export interface ReplayResult {
+  applied: string[]
+  skipped: string[]
+}
+
+export function replay(
+  state: InventoryState,
+  events: readonly InventoryEvent[],
+): ReplayResult {
+  const applied: string[] = []
+  const skipped: string[] = []
+
+  events.forEach((event) => {
+    const handler = handlers[event.type]
+    if (handler === undefined) {
+      skipped.push(event.id)
+      return
+    }
+
+    handler(state, event)
+    applied.push(event.id)
+  })
+
+  return { applied, skipped }
+}

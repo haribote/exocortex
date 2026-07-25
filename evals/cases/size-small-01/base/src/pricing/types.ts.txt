@@ -1,0 +1,77 @@
+export type CurrencyCode = 'JPY' | 'USD' | 'EUR'
+
+export type Region = 'JP' | 'US' | 'EU' | 'UK'
+
+export type TierId = 'free' | 'starter' | 'growth' | 'scale'
+
+export type MeteredUnit = 'seat' | 'request' | 'gigabyte'
+
+export interface CatalogEntry {
+  sku: string
+  name: string
+  unitAmount: number
+  meteredUnit: MeteredUnit
+  minQuantity: number
+  maxQuantity: number
+  active: boolean
+}
+
+export interface Catalog {
+  currency: CurrencyCode
+  revision: string
+  entries: readonly CatalogEntry[]
+}
+
+export interface QuoteRequest {
+  customerId: string
+  sku: string
+  quantity: number
+  tier: TierId
+  region: Region
+  requestedAt: string
+}
+
+export interface QuoteLine {
+  sku: string
+  quantity: number
+  unitMinor: number
+  amountMinor: number
+}
+
+export interface Quote {
+  customerId: string
+  currency: CurrencyCode
+  catalogRevision: string
+  lines: readonly QuoteLine[]
+  subtotalMinor: number
+  discountMinor: number
+  taxMinor: number
+  totalMinor: number
+}
+
+export interface TaxBreakdown {
+  region: Region
+  rate: number
+  taxableMinor: number
+  taxMinor: number
+}
+
+const CURRENCY_CODES: readonly string[] = ['JPY', 'USD', 'EUR']
+const REGIONS: readonly string[] = ['JP', 'US', 'EU', 'UK']
+const TIER_IDS: readonly string[] = ['free', 'starter', 'growth', 'scale']
+
+export function isCurrencyCode(value: string): value is CurrencyCode {
+  return CURRENCY_CODES.includes(value)
+}
+
+export function isRegion(value: string): value is Region {
+  return REGIONS.includes(value)
+}
+
+export function isTierId(value: string): value is TierId {
+  return TIER_IDS.includes(value)
+}
+
+export function activeEntries(catalog: Catalog): readonly CatalogEntry[] {
+  return catalog.entries.filter((entry) => entry.active)
+}

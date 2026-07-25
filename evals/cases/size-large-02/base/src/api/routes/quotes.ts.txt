@@ -1,0 +1,86 @@
+import { loadCatalog } from '../../pricing/catalog.js'
+import { statusFor } from '../../pricing/errors.js'
+import { formatMoney } from '../../pricing/money.js'
+import { buildQuote, quoteExpiresAt } from '../../pricing/quote.js'
+import {
+  isRegion,
+  isTierId,
+  type QuoteRequest,
+} from '../../pricing/types.js'
+import { pricingConfig } from '../../config/pricing.js'
+import { error as logError, info } from '../../observability/log.js'
+
+export interface HttpRequest {
+  body: Record<string, unknown>
+  headers: Record<string, string>
+}
+
+export interface HttpResponse {
+  status: number
+  body: Record<string, unknown>
+}
+
+function readString(body: Record<string, unknown>, key: string): string {
+  const value = body[key]
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${key} is required`)
+  }
+  return value
+}
+
+function readQuantity(body: Record<string, unknown>): number {
+  const value = body.quantity
+  if (typeof value !== 'number') {
+    throw new TypeError('quantity is required')
+  }
+  return value
+}
+
+export function parseQuoteRequest(request: HttpRequest): QuoteRequest {
+  const region = readString(request.body, 'region')
+  const tier = readString(request.body, 'tier')
+  if (!isRegion(region)) throw new TypeError(`unsupported region: ${region}`)
+  if (!isTierId(tier)) throw new TypeError(`unsupported tier: ${tier}`)
+
+  return {
+    customerId: readString(request.body, 'customerId'),
+    sku: readString(request.body, 'sku'),
+    quantity: readQuantity(request.body),
+    tier,
+    region,
+    requestedAt: request.headers['x-request-time'] ?? new Date().toISOString(),
+  }
+}
+
+export function postQuote(request: HttpRequest): HttpResponse {
+  const catalog = loadCatalog(
+    pricingConfig.defaultCurrency,
+    pricingConfig.catalogRevision,
+  )
+
+  try {
+    const parsed = parseQuoteRequest(request)
+    const quote = buildQuote(parsed, catalog)
+
+    info('http.quote.ok', {
+      customerId: quote.customerId,
+      totalMinor: quote.totalMinor,
+    })
+
+    return {
+      status: 200,
+      body: {
+        quote,
+        expiresAt: quoteExpiresAt(parsed),
+        display: {
+          subtotal: formatMoney(quote.subtotalMinor, quote.currency),
+          tax: formatMoney(quote.taxMinor, quote.currency),
+          total: formatMoney(quote.totalMinor, quote.currency),
+        },
+      },
+    }
+  } catch (cause) {
+    logError('http.quote.failed', { message: String(cause) })
+    return { status: statusFor(cause), body: { error: String(cause) } }
+  }
+}

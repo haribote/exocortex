@@ -1,0 +1,114 @@
+import { loadCatalog } from '../../pricing/catalog.js'
+import { statusFor } from '../../pricing/errors.js'
+import { sumMinor } from '../../pricing/money.js'
+import { buildQuote, quoteExpiresAt } from '../../pricing/quote.js'
+import {
+  isRegion,
+  isTierId,
+  type QuoteRequest,
+} from '../../pricing/types.js'
+import { pricingConfig } from '../../config/pricing.js'
+import { error as logError, info } from '../../observability/log.js'
+import type { HttpRequest, HttpResponse } from './quotes.js'
+
+export interface CartLine {
+  sku: string
+  quantity: number
+}
+
+interface ParsedCheckout {
+  customerId: string
+  idempotencyKey: string
+  lines: readonly QuoteRequest[]
+}
+
+function readCartLines(body: Record<string, unknown>): CartLine[] {
+  const cart = body.cart
+  if (!Array.isArray(cart) || cart.length === 0) {
+    throw new TypeError('cart must be a non-empty array')
+  }
+  return cart.map((raw, index) => {
+    const line = raw as Record<string, unknown>
+    if (typeof line.sku !== 'string' || line.sku.length === 0) {
+      throw new TypeError(`cart[${index}].sku is required`)
+    }
+    if (typeof line.quantity !== 'number') {
+      throw new TypeError(`cart[${index}].quantity is required`)
+    }
+    return { sku: line.sku, quantity: line.quantity }
+  })
+}
+
+function parseCheckout(request: HttpRequest): ParsedCheckout {
+  const region = String(request.body.region ?? '')
+  const tier = String(request.body.tier ?? '')
+  if (!isRegion(region)) throw new TypeError(`unsupported region: ${region}`)
+  if (!isTierId(tier)) throw new TypeError(`unsupported tier: ${tier}`)
+
+  const customerId = String(request.body.customerId ?? '')
+  if (customerId.length === 0) {
+    throw new TypeError('customerId is required')
+  }
+
+  const idempotencyKey = request.headers['idempotency-key']
+  if (!idempotencyKey || idempotencyKey.length < 8) {
+    throw new TypeError('idempotency-key header is required')
+  }
+
+  const requestedAt = request.headers['x-request-time'] ?? new Date().toISOString()
+
+  return {
+    customerId,
+    idempotencyKey,
+    lines: readCartLines(request.body).map((line) => ({
+      customerId,
+      sku: line.sku,
+      quantity: line.quantity,
+      tier,
+      region,
+      requestedAt,
+    })),
+  }
+}
+
+export function postCheckout(request: HttpRequest): HttpResponse {
+  const catalog = loadCatalog(
+    pricingConfig.defaultCurrency,
+    pricingConfig.catalogRevision,
+  )
+
+  try {
+    const parsed = parseCheckout(request)
+    const quotes = parsed.lines.map((line) => buildQuote(line, catalog))
+
+    const subtotalMinor = sumMinor(quotes.map((quote) => quote.subtotalMinor))
+    const discountMinor = sumMinor(quotes.map((quote) => quote.discountMinor))
+    const taxMinor = sumMinor(quotes.map((quote) => quote.taxMinor))
+    const totalMinor = sumMinor(quotes.map((quote) => quote.totalMinor))
+
+    info('http.checkout.ok', {
+      customerId: parsed.customerId,
+      idempotencyKey: parsed.idempotencyKey,
+      lines: quotes.length,
+      totalMinor,
+    })
+
+    return {
+      status: 201,
+      body: {
+        customerId: parsed.customerId,
+        currency: catalog.currency,
+        quotes,
+        subtotalMinor,
+        discountMinor,
+        taxMinor,
+        totalMinor,
+        expiresAt: quoteExpiresAt(parsed.lines[0]),
+      },
+    }
+  } catch (cause) {
+    logError('http.checkout.failed', { message: String(cause) })
+    const status = cause instanceof TypeError ? 400 : statusFor(cause)
+    return { status, body: { error: String(cause) } }
+  }
+}

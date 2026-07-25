@@ -1,0 +1,19 @@
+import { unitPriceFor } from './pricing.js'
+
+export interface Subscription {
+  accountId: string
+  seats: number
+}
+
+export function monthlyCharge(subscription: Subscription): number {
+  return unitPriceFor(subscription.seats) * subscription.seats
+}
+
+export function proratedCharge(
+  subscription: Subscription,
+  daysUsed: number,
+  daysInMonth: number,
+): number {
+  const full = monthlyCharge(subscription)
+  return Math.round((full * daysUsed) / daysInMonth)
+}

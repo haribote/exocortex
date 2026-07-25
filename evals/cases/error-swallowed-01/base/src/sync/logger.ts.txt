@@ -1,0 +1,11 @@
+export interface Logger {
+  warn(message: string, fields: Record<string, unknown>): void
+}
+
+export const logger: Logger = {
+  warn(message, fields) {
+    process.stderr.write(
+      `${JSON.stringify({ level: 'warn', message, ...fields })}\n`,
+    )
+  },
+}

@@ -1,0 +1,3114 @@
+[
+  {
+    "commentId": "00a8f551c8",
+    "configId": "C0p",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "046d078925",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0cd9811267",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "25691a7bf4",
+    "configId": "C0p",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "3d29449084",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "4693f7e9bf",
+    "configId": "C0p",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "493b6eb036",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "4a999ee8f4",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "57f35ba7b3",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "659548a453",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "68b32a42ca",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "6a812134f0",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "8b8793aa8d",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "8d2679da77",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "9aa6fbee2f",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "9ff3f14090",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "a938fdfc5b",
+    "configId": "C4",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "ab0072b928",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "ac582b4d82",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "b6d149cf89",
+    "configId": "C0",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "bdd5e92d4c",
+    "configId": "C2",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "be90171ffb",
+    "configId": "C0",
+    "caseId": "clean-bugfix-05",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "dcf3325f1b",
+    "configId": "C0",
+    "caseId": "clean-bugfix-05",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f0ffe3d20b",
+    "configId": "C3",
+    "caseId": "clean-bugfix-05",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0ad22c8306",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0d2a65ad57",
+    "configId": "C2",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "1271884c2e",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "145c3aac28",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "21b4ae0a4a",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "737f522751",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "8c4b437050",
+    "configId": "C2",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "a1a2b13bbf",
+    "configId": "C0p",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "b0270643d3",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b79595c7ca",
+    "configId": "C2",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "ce64ad9281",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 1,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "de7a2a3c99",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "e103d5a4b4",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f0114602c0",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f12ab3a788",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f30f0b64cb",
+    "configId": "C0p",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f37b985ca0",
+    "configId": "C3",
+    "caseId": "clean-dependency-update-06",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "07997e7503",
+    "configId": "C2",
+    "caseId": "clean-refactor-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "1fdcea12e1",
+    "configId": "C4",
+    "caseId": "clean-refactor-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "28b11bba82",
+    "configId": "C4",
+    "caseId": "clean-refactor-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "67c1a08e1d",
+    "configId": "C2",
+    "caseId": "clean-refactor-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "6859333903",
+    "configId": "C2",
+    "caseId": "clean-refactor-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "a68db58458",
+    "configId": "C4",
+    "caseId": "clean-refactor-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "0ac0d69b1b",
+    "configId": "C0",
+    "caseId": "clean-tests-added-03",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2ee80730d2",
+    "configId": "C0",
+    "caseId": "clean-tests-added-03",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "37b254d8a0",
+    "configId": "C0p",
+    "caseId": "clean-tests-added-03",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "5b5a0da78f",
+    "configId": "C2",
+    "caseId": "clean-tests-added-03",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "6d4de3edc2",
+    "configId": "C2",
+    "caseId": "clean-tests-added-03",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "6efa2ff483",
+    "configId": "C0",
+    "caseId": "clean-tests-added-03",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "9e1df6d727",
+    "configId": "C0",
+    "caseId": "clean-tests-added-03",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "ac5785288b",
+    "configId": "C0p",
+    "caseId": "clean-tests-added-03",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "fbde8a68fc",
+    "configId": "C2",
+    "caseId": "clean-tests-added-03",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "08f0bbaf25",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "0dbf338448",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "25e93678d3",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "57a9dcc7a8",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "84379538f4",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "8fdaa56722",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "b202911ba2",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "cf3fb12c9e",
+    "configId": "C0p",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "dcc43cf6c6",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "f0e66db7d4",
+    "configId": "C4",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "f904d2e9e9",
+    "configId": "C0p",
+    "caseId": "clean-type-annotations-04",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "161cfe80ef",
+    "configId": "C3",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "17cff07fb9",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "18d0fdbd59",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2214807f9c",
+    "configId": "C3",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "279b0acd46",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2f2ef93e94",
+    "configId": "C2",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "48dfcc36a9",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4af3041092",
+    "configId": "C1",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "4d28f5f394",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 3,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4f0f0f9e03",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 3,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "51b196e9a7",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "5ae22948c1",
+    "configId": "C3",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "66b35bcae2",
+    "configId": "C1",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "7116eb12f8",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "71592274fc",
+    "configId": "C1",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "764f169edd",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "8998cc2a8e",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 4,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "96cd8a5988",
+    "configId": "C0p",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "a444fa932a",
+    "configId": "C0p",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "c158b45c15",
+    "configId": "C2",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "c30607f39c",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "caf794c03d",
+    "configId": "C0p",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "ce45a69b37",
+    "configId": "C0p",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "d385fd0a24",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "d924784805",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "db79ea3f5f",
+    "configId": "C0p",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "ded13d324e",
+    "configId": "C4",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "ebfbaebf82",
+    "configId": "C2",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f4957ff7b8",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f54f232efc",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "fdb4775d58",
+    "configId": "C0",
+    "caseId": "concurrency-floating-promise-02",
+    "repeat": 3,
+    "commentIndex": 4,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "030010f27a",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0b75d9e9f8",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "27142815a3",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "282ce5fb9a",
+    "configId": "C1",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "2a200ede7c",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2cf7842560",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "492b6d73e5",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "4a607388c6",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4d4eab942b",
+    "configId": "C2",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "52da135f02",
+    "configId": "C1",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "5b3a27753f",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "5bf9cc0e7d",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "720c89a091",
+    "configId": "C0",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "763bfcfab4",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "7ce7c1d067",
+    "configId": "C1",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "803d4126fd",
+    "configId": "C2",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "858e34d0c9",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "8b17f5ac84",
+    "configId": "C3",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b947d79d12",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "c032b0ef49",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "c0878d2b3c",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "d4fc8ed3df",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "e60c972791",
+    "configId": "C4",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "ed7d05050f",
+    "configId": "C2",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f286dbe2cd",
+    "configId": "C0",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f6c4db90e4",
+    "configId": "C0p",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f71af145c6",
+    "configId": "C2",
+    "caseId": "concurrency-race-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "fda8c88a81",
+    "configId": "C2",
+    "caseId": "concurrency-race-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "00ae1c5da4",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "026b889844",
+    "configId": "C2",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0e5cd0a506",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "185883fc7e",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "2a61f4537e",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "2fc67c6bce",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "462c597f7e",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "478b15fe98",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "4933fb70ba",
+    "configId": "C0p",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4bd989f8d9",
+    "configId": "C0p",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4ea121e077",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "57f035b543",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "5e4e7c78aa",
+    "configId": "C0p",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "7891162233",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "840db1b8cd",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "843c9c442b",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "880c447ff3",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "91404b5c0e",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "9195f7d533",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "9647b91e86",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "9b53358364",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "9c49ccec66",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "9e09ac89a6",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "a19431abe9",
+    "configId": "C0p",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "a8305278ae",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "ad2ad577a2",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b0f463229f",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "b71dde1041",
+    "configId": "C4",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "ba183a85e7",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "bacd8fb2b9",
+    "configId": "C2",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "bf22d1375a",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "c83260f656",
+    "configId": "C0p",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "d52b00042e",
+    "configId": "C1",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "d951c9163e",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "df909b295b",
+    "configId": "C2",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e3c62b259b",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "e43139658b",
+    "configId": "C3",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f46b7a678d",
+    "configId": "C0",
+    "caseId": "convention-forbidden-api-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "04500e2961",
+    "configId": "C2",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0eca863062",
+    "configId": "C3",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "1f0b7dce89",
+    "configId": "C0p",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "23da444866",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "3506f98d13",
+    "configId": "C0",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "3ea784e226",
+    "configId": "C0p",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "44f3f0bd5d",
+    "configId": "C0",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "6bbc6284cb",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "6efd46db07",
+    "configId": "C1",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "7502b9705b",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "9d33c8df02",
+    "configId": "C1",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "a48778b4ad",
+    "configId": "C3",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "a5dd7e7eb3",
+    "configId": "C2",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "a8798d70b7",
+    "configId": "C0p",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "b3cb7fa07f",
+    "configId": "C2",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "c4f0e26869",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "ca8ad7360b",
+    "configId": "C1",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "d05fb1ddd8",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "dc056f8fe6",
+    "configId": "C4",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "e60a8fde4f",
+    "configId": "C0",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f73a15c5b4",
+    "configId": "C3",
+    "caseId": "convention-nondeterminism-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0e39c443dc",
+    "configId": "C1",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "150b2951ee",
+    "configId": "C0p",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2dfffaa79f",
+    "configId": "C1",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "3cd48beef4",
+    "configId": "C3",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "aff682eb03",
+    "configId": "C3",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b93d9c3e3f",
+    "configId": "C4",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "b990dcd47b",
+    "configId": "C4",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "cd5ecb1ca8",
+    "configId": "C3",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "d978c49250",
+    "configId": "C4",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "f2bdda7c95",
+    "configId": "C1",
+    "caseId": "dataflow-lost-update-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0642097cf2",
+    "configId": "C3",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "1e682ca922",
+    "configId": "C0",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "1eb47dcbd8",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "1f6976dbd6",
+    "configId": "C0",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "338b974023",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "426a9925aa",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "45f3e0de7e",
+    "configId": "C1",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "65415f4747",
+    "configId": "C2",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "78e63a74c1",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "7999122563",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "85c2376366",
+    "configId": "C0p",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "8f7896445b",
+    "configId": "C0p",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "946ca90753",
+    "configId": "C0p",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "9a91689e3a",
+    "configId": "C3",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "a1b8b9099e",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "b2acfdfc03",
+    "configId": "C1",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "b4135487a8",
+    "configId": "C0",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "cea1abc680",
+    "configId": "C1",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "d37845b9af",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "dc60f86978",
+    "configId": "C2",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e14e7b6b1b",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "f28a277f7c",
+    "configId": "C3",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f9c4fb869b",
+    "configId": "C4",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "fb00c3d824",
+    "configId": "C2",
+    "caseId": "dataflow-stale-value-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "033ec861c3",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "0679be0f1b",
+    "configId": "C0p",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "12605ddc88",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "1a07c6b115",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "24fb87b58d",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "25928811c0",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "2651f9fcb4",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "2b552b4d39",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "318c0a5007",
+    "configId": "C2",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "3f052cfd96",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "456c4043da",
+    "configId": "C2",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "539826112c",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "594f091a50",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "69123c82fe",
+    "configId": "C0",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "7cd98efc01",
+    "configId": "C0",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "8619dfb488",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "8f3c385633",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "954e62c763",
+    "configId": "C0",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "a4f1387bfb",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b216730a8f",
+    "configId": "C3",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b3d96f3f23",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "b5e6d08313",
+    "configId": "C4",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "d772ffc07a",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e6f34d9a0b",
+    "configId": "C2",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e841db0aaf",
+    "configId": "C1",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f423244572",
+    "configId": "C0p",
+    "caseId": "error-swallowed-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "fa6f5cb9ef",
+    "configId": "C0p",
+    "caseId": "error-swallowed-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "0921ba55da",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "1248c34891",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "1709b7f4d6",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "18918bdf87",
+    "configId": "C1",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "3d0afc2ef4",
+    "configId": "C0p",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "49307909b3",
+    "configId": "C4",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "5bf431bd24",
+    "configId": "C4",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "614fcfe9f9",
+    "configId": "C0p",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "76869be203",
+    "configId": "C1",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "81821f9ff8",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "82d9b60085",
+    "configId": "C2",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "924fa11fa5",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "bf1ab4a7d5",
+    "configId": "C1",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "c591634ea0",
+    "configId": "C2",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "cb121c6bf8",
+    "configId": "C0",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "dd8e559119",
+    "configId": "C2",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f8c1251281",
+    "configId": "C4",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "fe3ca66b8c",
+    "configId": "C0p",
+    "caseId": "error-unhandled-rejection-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "0d347a704d",
+    "configId": "C1",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "11738f5863",
+    "configId": "C3",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "1294a70bb7",
+    "configId": "C3",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "19e97c3eb1",
+    "configId": "C0",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2b80ac5d6c",
+    "configId": "C2",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "2fba21bd5b",
+    "configId": "C0p",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "6784bf83ce",
+    "configId": "C0p",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "81d3b09437",
+    "configId": "C3",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "94450021af",
+    "configId": "C1",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "9a1ad2aa04",
+    "configId": "C4",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "a9799b93f7",
+    "configId": "C0",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "af5036bdea",
+    "configId": "C0",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "bbd14c8d74",
+    "configId": "C0p",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "e01baa9028",
+    "configId": "C4",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "e110fd3348",
+    "configId": "C2",
+    "caseId": "logic-boundary-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e479ee340f",
+    "configId": "C1",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e69c87fa87",
+    "configId": "C4",
+    "caseId": "logic-boundary-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "e934f618c9",
+    "configId": "C2",
+    "caseId": "logic-boundary-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "1ae3f77ddb",
+    "configId": "C0p",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "22b62efa3f",
+    "configId": "C0",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "42efc0d8d8",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "4bfb456381",
+    "configId": "C0p",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "52d69daadc",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "6ba12dc4b9",
+    "configId": "C1",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "75d3c7ebce",
+    "configId": "C1",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "7f1860c33d",
+    "configId": "C2",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "93c553af33",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "9c1e322778",
+    "configId": "C1",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "aa7ee85955",
+    "configId": "C2",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "b1469e2599",
+    "configId": "C2",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "b1ec916f3c",
+    "configId": "C0p",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "c8836e7898",
+    "configId": "C3",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "e7630e5db6",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "e9333c6690",
+    "configId": "C0",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "eb4dc0c753",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "eb986b655a",
+    "configId": "C3",
+    "caseId": "logic-inversion-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f2e4259891",
+    "configId": "C3",
+    "caseId": "logic-inversion-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "fdc5a4bbb3",
+    "configId": "C4",
+    "caseId": "logic-inversion-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "0a57babeac",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0c4a7d5945",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0e10f0345f",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "0e8e9be9ca",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0f664dbc62",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "154f655994",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 3,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "18b507970d",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 4,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "1f96dcce6c",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 3,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "25a701bb43",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "25cc50a926",
+    "configId": "C0",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "27c97332a5",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "2dd57736ce",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "2f3f7dd691",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "35a637b910",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "36a9427de9",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 4,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "3909fda808",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "3a2b8b211f",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "3dfbd96e09",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "49c62ef4e3",
+    "configId": "C0p",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "59db177e6a",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "65dc01dc9a",
+    "configId": "C0p",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "666a1026bc",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "677d234f26",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "720179bca0",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "7435fd6560",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 5,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "8e43ad8076",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "8e901ab8fc",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "9c9ba0527e",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "a55f725284",
+    "configId": "C0p",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "a5bf016483",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "a667dfc7a7",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 3,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "aca31a5778",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 5,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "ad56ad6dee",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "b3cf3098ad",
+    "configId": "C0",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "b7f8721b85",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "ba30cf3a95",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "babdbab06e",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "c374cf154b",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 3,
+    "commentIndex": 5,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "dbf3638376",
+    "configId": "C2",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e1e26aa270",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e60afe6b6a",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f017109606",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 4,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f0f4bae8a4",
+    "configId": "C3",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "f48634badc",
+    "configId": "C1",
+    "caseId": "resource-listener-leak-01",
+    "repeat": 1,
+    "commentIndex": 3,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "1aac66ae7f",
+    "configId": "C2",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "379b33561f",
+    "configId": "C1",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "4f15ea7e82",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "58821861c7",
+    "configId": "C2",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "67bce94aff",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 3,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "74e3d1caa0",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "790e38d86e",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 2,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "7f8a5767c1",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 1,
+    "commentIndex": 2,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "868c266616",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "93a650c9a3",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "a6fe652ff2",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "a92f07f751",
+    "configId": "C2",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "e39168ed6a",
+    "configId": "C4",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "e9825807b4",
+    "configId": "C1",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "f9228f6d0f",
+    "configId": "C1",
+    "caseId": "resource-unclosed-handle-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "0e8cb8d8d5",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 2,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "16e09b2ec2",
+    "configId": "C2",
+    "caseId": "size-large-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "30f4548039",
+    "configId": "C0p",
+    "caseId": "size-large-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "33d1417de5",
+    "configId": "C2",
+    "caseId": "size-large-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "499cc891e4",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "4ddf200abb",
+    "configId": "C0p",
+    "caseId": "size-large-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "727e4ad5e1",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "9316a0c801",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 3,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "c3f215fb24",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "c79a8ae2e5",
+    "configId": "C0p",
+    "caseId": "size-large-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "ed4e98cfac",
+    "configId": "C0",
+    "caseId": "size-large-02",
+    "repeat": 1,
+    "commentIndex": 1,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "efcdcd1ab4",
+    "configId": "C2",
+    "caseId": "size-large-02",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "13550e9daf",
+    "configId": "C0",
+    "caseId": "size-small-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2180f37b80",
+    "configId": "C2",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "26e6a6a061",
+    "configId": "C0p",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "2fec87c666",
+    "configId": "C2",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "3237304333",
+    "configId": "C2",
+    "caseId": "size-small-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "39ca834b54",
+    "configId": "C3",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "49834d2b40",
+    "configId": "C0",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "67bae93256",
+    "configId": "C3",
+    "caseId": "size-small-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "6f8499350d",
+    "configId": "C4",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  },
+  {
+    "commentId": "7bda907c74",
+    "configId": "C1",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "85396acc5d",
+    "configId": "C1",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "gemma4:12b"
+  },
+  {
+    "commentId": "9afaa8bd36",
+    "configId": "C0p",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "9c9526ceaf",
+    "configId": "C3",
+    "caseId": "size-small-01",
+    "repeat": 3,
+    "commentIndex": 0,
+    "model": "qwen3.5:9b"
+  },
+  {
+    "commentId": "eda4f8d45b",
+    "configId": "C0p",
+    "caseId": "size-small-01",
+    "repeat": 1,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "f9ef50f711",
+    "configId": "C0",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "qwen3:14b"
+  },
+  {
+    "commentId": "fcf1f7ef1a",
+    "configId": "C4",
+    "caseId": "size-small-01",
+    "repeat": 2,
+    "commentIndex": 0,
+    "model": "gpt-oss:20b"
+  }
+]

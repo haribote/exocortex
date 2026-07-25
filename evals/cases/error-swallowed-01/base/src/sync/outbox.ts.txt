@@ -1,0 +1,12 @@
+export interface OutboxEntry {
+  id: string
+  documentId: string
+  revision: number
+  body: string
+  queuedAt: string
+}
+
+export interface Outbox {
+  list(): Promise<OutboxEntry[]>
+  remove(id: string): Promise<void>
+}

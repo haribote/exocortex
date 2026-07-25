@@ -1,0 +1,7 @@
+import type { Order } from './order.js'
+import { convertToJpy } from './rates.js'
+
+export function invoiceTotal(order: Order): number {
+  const amount = order.amount
+  return convertToJpy(amount, order.currency)
+}

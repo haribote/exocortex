@@ -1,0 +1,19 @@
+import type { Receipt } from './types.js'
+
+const POINTS_PER_YEN = 0.01
+
+export async function creditLoyaltyPoints(
+  customerId: string,
+  receipt: Receipt,
+): Promise<void> {
+  const points = Math.floor(receipt.total * POINTS_PER_YEN)
+  const response = await fetch(`/api/customers/${customerId}/points`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ points, source: receipt.orderId }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`loyalty credit failed: ${response.status}`)
+  }
+}

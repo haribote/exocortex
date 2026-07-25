@@ -1,0 +1,12 @@
+export type MovementKind = 'receipt' | 'pick' | 'cycle-count'
+
+export interface StockMovement {
+  sku: string
+  kind: MovementKind
+  delta: number
+  recordedAt: string
+}
+
+export function byRecordedAt(a: StockMovement, b: StockMovement): number {
+  return a.recordedAt.localeCompare(b.recordedAt)
+}

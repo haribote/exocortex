@@ -1,0 +1,8 @@
+{
+  "id": "clean-refactor-01",
+  "category": "clean",
+  "mode": "base",
+  "expected": [],
+  "origin": "false positive の測定用。挙動を変えないリファクタだけを置いた",
+  "clean": true
+}

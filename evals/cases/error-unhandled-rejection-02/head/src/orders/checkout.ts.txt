@@ -1,0 +1,18 @@
+import { creditLoyaltyPoints } from './loyalty.js'
+import { sendReceiptEmail } from './mailer.js'
+import { capturePayment } from './payments.js'
+import type { Order, Receipt } from './types.js'
+
+export async function completeCheckout(order: Order): Promise<Receipt> {
+  const payment = await capturePayment(order)
+  const receipt: Receipt = {
+    orderId: order.id,
+    paymentId: payment.id,
+    total: order.total,
+    issuedAt: payment.capturedAt,
+  }
+
+  creditLoyaltyPoints(order.customerId, receipt)
+  await sendReceiptEmail(order.customerEmail, receipt)
+  return receipt
+}

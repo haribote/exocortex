@@ -1,0 +1,34 @@
+import type { LockStore } from './locks.js'
+import type { DocumentStore } from './store.js'
+import { tokenize } from './tokenize.js'
+
+const LOCK_KEY = 'search-index'
+const LOCK_TTL_MS = 120_000
+
+export interface RebuildResult {
+  indexed: number
+  revision: number
+}
+
+export async function rebuildSearchIndex(
+  store: DocumentStore,
+  locks: LockStore,
+): Promise<RebuildResult> {
+  const lock = await locks.acquire(LOCK_KEY, LOCK_TTL_MS)
+  const indexedRevision = await store.readIndexRevision()
+  const contentRevision = await store.readContentRevision()
+  if (indexedRevision === contentRevision) {
+    return { indexed: 0, revision: indexedRevision }
+  }
+
+  try {
+    const documents = await store.listDocuments()
+    for (const document of documents) {
+      await store.putIndexEntry(document.id, tokenize(document.body))
+    }
+    await store.writeIndexRevision(contentRevision)
+    return { indexed: documents.length, revision: contentRevision }
+  } finally {
+    await lock.release()
+  }
+}

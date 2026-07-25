@@ -1,0 +1,17 @@
+import type { Clock } from '../infra/clock.js'
+
+export type Plan = 'free' | 'pro' | 'team'
+
+export interface Subscription {
+  id: string
+  plan: Plan
+  expiresAt: string
+  canceledAt: string | null
+}
+
+export function isActive(subscription: Subscription, clock: Clock): boolean {
+  if (subscription.canceledAt !== null) {
+    return false
+  }
+  return Date.parse(subscription.expiresAt) > clock.now()
+}

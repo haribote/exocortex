@@ -1,0 +1,54 @@
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+export interface LogFields {
+  [key: string]: string | number | boolean | null
+}
+
+const ORDER: Record<LogLevel, number> = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+}
+
+function threshold(): number {
+  const configured = process.env.LOG_LEVEL as LogLevel | undefined
+  if (configured && configured in ORDER) return ORDER[configured]
+  return ORDER.info
+}
+
+function emit(level: LogLevel, message: string, fields: LogFields): void {
+  if (ORDER[level] < threshold()) return
+  const line = JSON.stringify({
+    level,
+    message,
+    at: new Date().toISOString(),
+    ...fields,
+  })
+  process.stdout.write(`${line}\n`)
+}
+
+export function debug(message: string, fields: LogFields = {}): void {
+  emit('debug', message, fields)
+}
+
+export function info(message: string, fields: LogFields = {}): void {
+  emit('info', message, fields)
+}
+
+export function warn(message: string, fields: LogFields = {}): void {
+  emit('warn', message, fields)
+}
+
+export function error(message: string, fields: LogFields = {}): void {
+  emit('error', message, fields)
+}
+
+export function timed<T>(name: string, run: () => T): T {
+  const started = Date.now()
+  try {
+    return run()
+  } finally {
+    debug('span', { name, elapsedMs: Date.now() - started })
+  }
+}

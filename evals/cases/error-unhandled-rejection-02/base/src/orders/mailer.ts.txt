@@ -1,0 +1,16 @@
+import type { Receipt } from './types.js'
+
+export async function sendReceiptEmail(
+  to: string,
+  receipt: Receipt,
+): Promise<void> {
+  const response = await fetch('/api/mail/receipt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ to, receipt }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`receipt mail failed: ${response.status}`)
+  }
+}

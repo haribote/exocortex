@@ -1,0 +1,17 @@
+{
+  "id": "logic-inversion-01",
+  "category": "logic",
+  "mode": "base",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/cart.ts",
+      "anchor": "if (amount <= FREE_SHIPPING_THRESHOLD) {",
+      "span": 1,
+      "summary": "比較が反転しており、しきい値未満の注文が送料無料になり、しきい値以上の注文に送料が課される",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "a9d124c で使った 3 問のうちの 1 つ (単一行の論理反転)",
+  "clean": false
+}

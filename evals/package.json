@@ -1,0 +1,14 @@
+{
+  "name": "@exocortex/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "eval": "node src/run.ts",
+    "report": "node src/report.ts"
+  },
+  "dependencies": {
+    "@exocortex/contract": "workspace:*"
+  }
+}

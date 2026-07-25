@@ -1,0 +1,17 @@
+{
+  "id": "convention-nondeterminism-01",
+  "category": "convention",
+  "mode": "staged",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/sim/walk.ts",
+      "anchor": "const noise = Math.random() * jitter",
+      "span": 1,
+      "summary": "CLAUDE.md が禁じている src/sim/ での Math.random() を使っており、seed からの再現性が壊れる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "a9d124c で使った 3 問のうちの 1 つ (src/sim/ での Math.random() による決定論規約違反)",
+  "clean": false
+}

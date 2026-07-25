@@ -1,0 +1,27 @@
+import type { Clock } from '../infra/clock.js'
+
+export type Plan = 'free' | 'pro' | 'team'
+
+export interface Subscription {
+  id: string
+  plan: Plan
+  expiresAt: string
+  canceledAt: string | null
+}
+
+const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000
+
+export function isActive(subscription: Subscription, clock: Clock): boolean {
+  if (subscription.canceledAt !== null) {
+    return false
+  }
+  return Date.parse(subscription.expiresAt) > clock.now()
+}
+
+export function isInGracePeriod(subscription: Subscription): boolean {
+  if (subscription.canceledAt !== null) {
+    return false
+  }
+  const elapsed = Date.now() - Date.parse(subscription.expiresAt)
+  return elapsed > 0 && elapsed <= GRACE_PERIOD_MS
+}

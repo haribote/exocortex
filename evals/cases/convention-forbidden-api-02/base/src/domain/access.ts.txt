@@ -1,0 +1,21 @@
+import type { Clock } from '../infra/clock.js'
+import { isActive, type Plan, type Subscription } from './subscription.js'
+
+export type Feature = 'export' | 'sso' | 'audit-log'
+
+const PLAN_FEATURES: Record<Plan, readonly Feature[]> = {
+  free: [],
+  pro: ['export'],
+  team: ['export', 'sso', 'audit-log'],
+}
+
+export function canUse(
+  subscription: Subscription,
+  feature: Feature,
+  clock: Clock,
+): boolean {
+  if (!isActive(subscription, clock)) {
+    return false
+  }
+  return PLAN_FEATURES[subscription.plan].includes(feature)
+}

@@ -1,0 +1,17 @@
+{
+  "id": "error-swallowed-01",
+  "category": "error-handling",
+  "mode": "staged",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/sync/flush.ts",
+      "anchor": "logger.warn('outbox upload failed', { entryId: entry.id, cause })",
+      "span": 1,
+      "summary": "アップロード失敗を warn ログだけで握り潰し、そのまま outbox.remove と uploaded += 1 に進んでいる。失敗した entry がキューから消えて再送されず、FlushResult の pending も 0 のままなので呼び出し側は同期済みと判定する",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。実在の公開コミットは出典にしていない。オフライン対応の outbox で「ネットワーク失敗でクラッシュしないように」と try/catch を足した結果、失敗したエントリが再送されないまま破棄され、呼び出し側が成功と区別できなくなる、という実務でよくある型をモデル化した",
+  "clean": false
+}

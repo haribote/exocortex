@@ -1,0 +1,14 @@
+import { PRICE_TIERS } from './tiers.js'
+
+export function unitPriceFor(seats: number): number {
+  const tier = PRICE_TIERS.find((candidate) => seats <= candidate.maxSeats)
+  if (tier === undefined) {
+    throw new Error(`no price tier covers ${seats} seats`)
+  }
+  return tier.unitPrice
+}
+
+export function tierIdFor(seats: number): string {
+  const tier = PRICE_TIERS.find((candidate) => seats <= candidate.maxSeats)
+  return tier?.id ?? 'custom'
+}

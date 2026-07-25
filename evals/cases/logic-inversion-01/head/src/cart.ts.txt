@@ -1,0 +1,23 @@
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from './config.js'
+
+export interface CartItem {
+  sku: string
+  unitPrice: number
+  quantity: number
+}
+
+export function subtotal(items: readonly CartItem[]): number {
+  return items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+}
+
+export function shippingFee(amount: number): number {
+  if (amount <= FREE_SHIPPING_THRESHOLD) {
+    return 0
+  }
+  return SHIPPING_FEE
+}
+
+export function total(items: readonly CartItem[]): number {
+  const amount = subtotal(items)
+  return amount + shippingFee(amount)
+}

@@ -1,0 +1,22 @@
+import { applyMovements } from './inventory.js'
+import { byRecordedAt, type StockMovement } from './movement.js'
+
+export interface StockSnapshot {
+  warehouseId: string
+  takenAt: string
+  levels: ReadonlyMap<string, number>
+}
+
+export function reconcile(
+  snapshot: StockSnapshot,
+  movements: readonly StockMovement[],
+): StockSnapshot {
+  const ordered = [...movements].sort(byRecordedAt)
+  const levels = applyMovements(snapshot.levels, ordered)
+
+  return {
+    warehouseId: snapshot.warehouseId,
+    takenAt: ordered.at(-1)?.recordedAt ?? snapshot.takenAt,
+    levels,
+  }
+}

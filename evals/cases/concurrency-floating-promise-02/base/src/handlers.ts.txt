@@ -1,0 +1,19 @@
+import { type InventoryEvent, type InventoryState, bump } from './events.js'
+
+export type Handler = (state: InventoryState, event: InventoryEvent) => void
+
+export const handlers: Record<string, Handler> = {
+  received: (state, event) => {
+    bump(state.onHand, event.sku, event.quantity)
+  },
+  reserved: (state, event) => {
+    bump(state.reserved, event.sku, event.quantity)
+  },
+  released: (state, event) => {
+    bump(state.reserved, event.sku, -event.quantity)
+  },
+  shipped: (state, event) => {
+    bump(state.reserved, event.sku, -event.quantity)
+    bump(state.onHand, event.sku, -event.quantity)
+  },
+}

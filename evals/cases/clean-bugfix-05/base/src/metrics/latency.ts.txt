@@ -1,0 +1,9 @@
+export function medianLatency(samples: number[]): number | null {
+  if (samples.length === 0) return null
+
+  const sorted = samples.sort()
+  const middle = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 1) return sorted[middle] as number
+
+  return ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2
+}

@@ -1,0 +1,50 @@
+import { logger } from './logger.js'
+import type { Quote } from './types.js'
+
+const HEARTBEAT_FRAME = JSON.stringify({ op: 'ping' })
+const HEARTBEAT_INTERVAL_MS = 15_000
+
+export interface FeedOptions {
+  url: string
+  symbols: readonly string[]
+  onQuote: (quote: Quote) => void
+}
+
+export class FeedClient {
+  private socket: WebSocket | null = null
+  private heartbeat: ReturnType<typeof setInterval> | null = null
+
+  constructor(private readonly options: FeedOptions) {}
+
+  start(): void {
+    const socket = new WebSocket(this.options.url)
+    this.socket = socket
+
+    socket.addEventListener('open', () => {
+      socket.send(
+        JSON.stringify({ op: 'subscribe', symbols: this.options.symbols }),
+      )
+    })
+
+    socket.addEventListener('message', (event) => {
+      this.options.onQuote(JSON.parse(String(event.data)) as Quote)
+    })
+
+    socket.addEventListener('close', () => {
+      logger.warn('feed socket closed')
+    })
+
+    this.heartbeat = setInterval(() => {
+      this.socket?.send(HEARTBEAT_FRAME)
+    }, HEARTBEAT_INTERVAL_MS)
+  }
+
+  stop(): void {
+    if (this.heartbeat !== null) {
+      clearInterval(this.heartbeat)
+      this.heartbeat = null
+    }
+    this.socket?.close()
+    this.socket = null
+  }
+}

@@ -1,0 +1,13 @@
+export interface Order {
+  id: string
+  customerId: string
+  customerEmail: string
+  total: number
+}
+
+export interface Receipt {
+  orderId: string
+  paymentId: string
+  total: number
+  issuedAt: string
+}

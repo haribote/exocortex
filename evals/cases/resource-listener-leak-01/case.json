@@ -1,0 +1,17 @@
+{
+  "id": "resource-listener-leak-01",
+  "category": "resource",
+  "mode": "base",
+  "expected": [
+    {
+      "id": "e1",
+      "file": "src/feed-client.ts",
+      "anchor": "this.heartbeat = setInterval(() => {",
+      "span": 3,
+      "summary": "再接続のたびに open ハンドラが setInterval を張り直すが、close 側で clearInterval していないため、古い heartbeat が閉じた socket を掴んだまま積み上がる",
+      "severityFloor": "major"
+    }
+  ],
+  "origin": "合成。単発接続に指数バックオフの再接続を足したときに、listener は AbortController で外しているのに接続ごとのタイマーだけ解除が漏れる、という実務でよくある型をモデル化した。実在する公開コミットは根拠にしていない",
+  "clean": false
+}

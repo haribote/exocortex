@@ -1,0 +1,65 @@
+# ADR 0009: one conversion to minor units, at the catalog edge
+
+- Status: accepted
+- Date: 2026-03-18
+- Supersedes: ADR 0004 (currency handling in the quote builder)
+
+## Context
+
+Finance edits the catalog in major units. A standard seat is `18`, not `1800`,
+because that is what a spreadsheet export looks like and what an auditor expects
+to read. Everything downstream of the catalog wants integers: an invoice line
+that is `1799.9999999999998` cents cannot be posted, and a ledger export that
+carries floats cannot be reconciled.
+
+Before this decision the conversion happened wherever it was convenient. The
+quote builder scaled the catalog amount, the invoice service scaled the line it
+received in case the caller had not, and the ledger export scaled again if the
+value looked "too small". Each of those guards was written by someone who had
+been burned by a caller that did not scale, and together they made the unit of
+any given number unknowable without reading three files.
+
+Two production incidents came out of that arrangement: INC-341, where an EU
+customer was overcharged by a factor of 100, and INC-352, where a JPY customer
+was undercharged by the same factor. Both returned a well-formed response and
+were reported by the customer rather than by an alert.
+
+## Decision
+
+**A major-unit amount is converted to minor units exactly once, at the edge
+where it enters the pricing pipeline, and never again.**
+
+Concretely:
+
+1. `toMinorUnits` in `src/pricing/money.ts` is the only conversion function, and
+   the only legitimate caller inside the pipeline is `src/pricing/quote.ts`,
+   where it is applied to the catalog's `unitAmount`.
+2. Every stage after that — `src/pricing/tier.ts`, `src/pricing/tax.ts`, the
+   invoice service, the revenue report, the ledger export — takes minor units
+   and returns minor units. A stage that changes the unit of its input is a bug
+   in that stage.
+3. Defensive re-scaling is forbidden. A function that suspects its caller may
+   have handed it major units calls `assertMinorUnits`, which throws, rather
+   than silently repairing the value.
+4. Names carry the unit. A number in minor units is named `*Minor` at every
+   boundary where the reader cannot see where it came from.
+
+## Consequences
+
+The rule is cheap to follow and expensive to check. Nothing in the type system
+distinguishes minor units from major units — both are `number` — so the only
+enforcement is review and the naming convention.
+
+That makes the pipeline order in `src/pricing/quote.ts` load-bearing, and it
+puts the burden on review rather than on the compiler.
+
+The JPY asymmetry also makes unit mistakes hard to see in tests, since a
+currency with an exponent of 0 hides them. `test/pricing/quote.test.ts`
+therefore prices in USD, and the tier rules in `tier.test.ts` assert on exact
+minor-unit integers rather than on ratios.
+
+## Alternatives considered
+
+**A branded `Minor` type.** Rejected for now. It would touch every signature in
+`src/pricing/` and does not survive `JSON.parse`. Revisit after a third
+incident.

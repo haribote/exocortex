@@ -1,0 +1,8 @@
+{
+  "id": "clean-rename-02",
+  "category": "clean",
+  "mode": "base",
+  "expected": [],
+  "origin": "false positive の測定用。製品名を Organization から Workspace に統一したときの、識別子の改名だけの差分を模した",
+  "clean": true
+}

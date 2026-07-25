@@ -1,0 +1,19 @@
+import type { InventoryState } from './events.js'
+
+export interface StockSnapshot {
+  sku: string
+  onHand: number
+  reserved: number
+}
+
+export interface ReadModel {
+  publish(snapshot: StockSnapshot): Promise<void>
+}
+
+export function snapshotOf(state: InventoryState, sku: string): StockSnapshot {
+  return {
+    sku,
+    onHand: state.onHand.get(sku) ?? 0,
+    reserved: state.reserved.get(sku) ?? 0,
+  }
+}

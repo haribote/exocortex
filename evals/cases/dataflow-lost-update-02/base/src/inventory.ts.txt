@@ -1,0 +1,20 @@
+import type { StockMovement } from './movement.js'
+
+export function applyMovements(
+  levels: Map<string, number>,
+  movements: readonly StockMovement[],
+): void {
+  for (const movement of movements) {
+    const current = levels.get(movement.sku) ?? 0
+    levels.set(movement.sku, current + movement.delta)
+  }
+}
+
+export function skusBelow(
+  levels: ReadonlyMap<string, number>,
+  threshold: number,
+): string[] {
+  return [...levels]
+    .filter(([, quantity]) => quantity < threshold)
+    .map(([sku]) => sku)
+}

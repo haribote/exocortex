@@ -1,0 +1,126 @@
+import { PricingError } from '../pricing/errors.js'
+import { assertMinorUnits, sumMinor } from '../pricing/money.js'
+import { buildQuote, quoteExpiresAt } from '../pricing/quote.js'
+import type { Catalog, CurrencyCode, QuoteRequest } from '../pricing/types.js'
+import { priceSubscription, type Subscription } from './subscription.js'
+import { info } from '../observability/log.js'
+
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void'
+
+export interface InvoiceLine {
+  sku: string
+  quantity: number
+  unitMinor: number
+  amountMinor: number
+}
+
+export interface Invoice {
+  id: string
+  subscriptionId: string
+  customerId: string
+  currency: CurrencyCode
+  status: InvoiceStatus
+  periodStart: string
+  periodEnd: string
+  lines: readonly InvoiceLine[]
+  subtotalMinor: number
+  taxMinor: number
+  totalMinor: number
+}
+
+export interface ProrationLine extends InvoiceLine {
+  validUntil: string
+}
+
+export class InvoiceTotalMismatchError extends PricingError {
+  constructor(expectedMinor: number, actualMinor: number) {
+    super(
+      'invoice_total_mismatch',
+      `lines sum to ${actualMinor} but header total is ${expectedMinor}`,
+    )
+    this.name = 'InvoiceTotalMismatchError'
+  }
+}
+
+function assertLinesMatchTotal(
+  lines: readonly InvoiceLine[],
+  totalMinor: number,
+): void {
+  const summed = sumMinor(lines.map((line) => line.amountMinor))
+  if (summed !== totalMinor) {
+    throw new InvoiceTotalMismatchError(totalMinor, summed)
+  }
+}
+
+export function buildInvoice(
+  subscription: Subscription,
+  periodStart: string,
+  periodEnd: string,
+): Invoice {
+  const priced = priceSubscription(subscription, periodEnd)
+
+  const lines: InvoiceLine[] = priced.quotes.flatMap((quote) =>
+    quote.lines.map((line) => ({
+      sku: line.sku,
+      quantity: line.quantity,
+      unitMinor: line.unitMinor,
+      amountMinor: line.amountMinor,
+    })),
+  )
+
+  assertLinesMatchTotal(lines, priced.subtotalMinor)
+
+  const invoice: Invoice = {
+    id: `inv_${subscription.id}_${periodEnd.slice(0, 10)}`,
+    subscriptionId: subscription.id,
+    customerId: subscription.customerId,
+    currency: priced.currency,
+    status: 'draft',
+    periodStart,
+    periodEnd,
+    lines,
+    subtotalMinor: priced.subtotalMinor,
+    taxMinor: priced.taxMinor,
+    totalMinor: priced.totalMinor,
+  }
+
+  info('invoice.built', {
+    invoiceId: invoice.id,
+    subscriptionId: subscription.id,
+    lines: invoice.lines.length,
+    totalMinor: invoice.totalMinor,
+  })
+
+  return invoice
+}
+
+export function prorateUpgrade(
+  request: QuoteRequest,
+  catalog: Catalog,
+  periodStart: string,
+  periodEnd: string,
+): ProrationLine {
+  const quote = buildQuote(request, catalog)
+  const line = quote.lines[0]
+  assertMinorUnits(line.amountMinor, 'prorateUpgrade')
+
+  const periodMs = new Date(periodEnd).getTime() - new Date(periodStart).getTime()
+  const remainingMs = new Date(periodEnd).getTime() - new Date(request.requestedAt).getTime()
+  const fraction = periodMs > 0 ? Math.max(0, Math.min(1, remainingMs / periodMs)) : 0
+
+  return {
+    sku: line.sku,
+    quantity: line.quantity,
+    unitMinor: line.unitMinor,
+    amountMinor: Math.round(line.amountMinor * fraction),
+    validUntil: quoteExpiresAt(request),
+  }
+}
+
+export function transition(invoice: Invoice, status: InvoiceStatus): Invoice {
+  return { ...invoice, status }
+}
+
+export function isSettled(invoice: Invoice): boolean {
+  return invoice.status === 'paid' || invoice.status === 'void'
+}

@@ -1,10 +1,10 @@
 # exocortex
 
-ゲーミング PC など、比較的高性能な GPU を搭載した Windows マシンをローカル LLM 推論サーバーとして動かし、LAN 内の他の開発環境から HTTP 経由でコードレビューや翻訳を依頼する仕組み。
+VRAM 16GB クラスの GPU を搭載したゲーミング PC をローカル LLM 推論サーバーとして動かし、LAN 内の他の開発環境から SSH トンネル越しにコードレビューや翻訳を依頼する仕組み。
 
 ## 名前の由来
 
-**exocortex** は `exo-`（外部）と `cortex`（大脳皮質）を組み合わせた語で、脳の外側にあって高次の思考を助ける情報処理システムを指す造語である。 [^wiktionary] [^houston]
+**exocortex** は `exo-`（外部）と `cortex`（大脳皮質）を組み合わせた造語で、脳の外側にあって高次の思考を助ける情報処理システムを指す言葉である。 [^wiktionary] [^houston]
 
 手元の開発環境とは別に、LAN の向こうにある GPU に推論を委ねる。
 思考の実体が身体の外部にある。
@@ -31,6 +31,19 @@
   - [POST /review](docs/api-reference.md#post-review)
   - [POST /translate](docs/api-reference.md#post-translate)
   - [エラー](docs/api-reference.md#エラー)
+- [@exocortex/evals](evals/README.md)：コードレビュー用モデルを比較するための eval harness
+  - [何を測るか](evals/README.md#何を測るか)
+  - [セットアップ](evals/README.md#セットアップ)
+  - [単体テスト](evals/README.md#単体テスト)
+  - [計測の実行](evals/README.md#計測の実行)
+  - [無人実行のための自動切り替え](evals/README.md#無人実行のための自動切り替え)
+  - [途中で落ちたとき](evals/README.md#途中で落ちたとき)
+  - [レポートの生成](evals/README.md#レポートの生成)
+  - [出力元を伏せて採点する](evals/README.md#出力元を伏せて採点する)
+  - [case を追加する](evals/README.md#case-を追加する)
+  - [現在の case](evals/README.md#現在の-case)
+  - [サイズ case で測るもの](evals/README.md#サイズ-case-で測るもの)
+  - [採否をどう決めるか](evals/README.md#採否をどう決めるか)
 
 ## 動作環境
 
@@ -72,7 +85,7 @@ flowchart LR
 | GPU      | NVIDIA 製、VRAM 16GB 以上                                                  | RTX 5080     |
 | Windows  | 11 22H2 以降                                                               |              |
 | WSL2     | Docker Engine + Compose を動かすディストロ                                 | Ubuntu       |
-| モデル   | `qwen3:14b`（コードレビュー）、`translategemma:12b`（日英翻訳）            |              |
+| モデル   | `gemma4:12b`（コードレビュー）、`translategemma:12b`（日英翻訳）           |              |
 | ディスク | 60GB 以上（モデル 2 本で 16GB、Docker のイメージとビルドキャッシュを含む） |              |
 
 VRAM 16GB では両方のモデルを同時に常駐させられないため、Ollama 側で用途ごとに切り替る。
