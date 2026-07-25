@@ -19,12 +19,12 @@ import {
   buildReviewPrompt,
   SYSTEM_INSTRUCTION,
 } from './prompt.js'
-import { parseReviewSystemMode, parseReviewThink } from './route.js'
+import { DEBUG_EDGE_CHARS, truncateForDebug } from './route.js'
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 
 type ReviewKnobs = Pick<
   AppDeps,
-  'reviewSystemMode' | 'reviewThinkPrefix' | 'reviewThink'
+  'reviewSystemMode' | 'reviewThinkPrefix' | 'reviewThink' | 'reviewDebugRaw'
 >
 
 function fakeOllama(
@@ -335,14 +335,15 @@ describe('POST /review model knobs', () => {
   })
 })
 
-// The eval compares runs against the unconfigured baseline, so the bytes on the
-// wire must not move when a knob is merely available but unused.
+// Guards the request envelope only: which keys are present, in which order, and
+// that the default carries a single user message with no system or think field.
+// The prompt text itself is pinned by the snapshots in prompt.test.ts.
 describe('POST /review default request bytes', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it('serialises to the same body the single-prompt design always sent', async () => {
+  it('serialises the default request with the expected keys in the expected order', async () => {
     let captured = ''
     vi.stubGlobal(
       'fetch',
@@ -413,67 +414,101 @@ describe('POST /review meta counters', () => {
 })
 
 describe('POST /review raw output debugging', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
-  async function invalidOutput(content: string) {
-    const app = appWith(fakeOllama({ content, totalDurationMs: 0 }))
+  async function invalidOutput(
+    result: Partial<OllamaChatResult> & { content: string },
+    debugRaw?: boolean,
+  ) {
+    const app = appWith(
+      fakeOllama({ totalDurationMs: 0, ...result }),
+      undefined,
+      { reviewDebugRaw: debugRaw },
+    )
     const res = await post(app, form({ language: 'typescript' }))
     expect(res.status).toBe(502)
     return await res.json()
   }
 
   it('does not leak the raw model output by default', async () => {
-    expect(await invalidOutput('not valid json')).not.toHaveProperty('raw')
-    expect(await invalidOutput('{"summary": 1}')).not.toHaveProperty('raw')
+    expect(
+      await invalidOutput({ content: 'not valid json' }),
+    ).not.toHaveProperty('raw')
+    expect(
+      await invalidOutput({ content: '{"summary": 1}' }),
+    ).not.toHaveProperty('raw')
   })
 
-  it('does not leak the raw model output when the flag is not exactly "1"', async () => {
-    vi.stubEnv('REVIEW_DEBUG_RAW', 'true')
-    expect(await invalidOutput('not valid json')).not.toHaveProperty('raw')
+  it('does not leak the raw model output when debugRaw is off', async () => {
+    const body = await invalidOutput(
+      { content: 'not valid json', thinking: 'pondering' },
+      false,
+    )
+    expect(body).not.toHaveProperty('raw')
+    expect(body).not.toHaveProperty('thinking')
   })
 
-  it('includes the raw model output when REVIEW_DEBUG_RAW is 1', async () => {
-    vi.stubEnv('REVIEW_DEBUG_RAW', '1')
-    expect((await invalidOutput('not valid json')).raw).toBe('not valid json')
-    expect((await invalidOutput('{"summary": 1}')).raw).toBe('{"summary": 1}')
+  it('includes the raw model output when debugRaw is on', async () => {
+    expect((await invalidOutput({ content: 'not valid json' }, true)).raw).toBe(
+      'not valid json',
+    )
+    expect((await invalidOutput({ content: '{"summary": 1}' }, true)).raw).toBe(
+      '{"summary": 1}',
+    )
   })
 
-  it('truncates the raw model output to 2000 characters', async () => {
-    vi.stubEnv('REVIEW_DEBUG_RAW', '1')
-    const body = await invalidOutput('x'.repeat(5000))
-    expect(body.raw).toHaveLength(2000)
+  // The failure this flag exists to diagnose is thinking eating the output
+  // budget, and in that case the reasoning is the only evidence there is.
+  it('includes the thinking text alongside the raw output', async () => {
+    const body = await invalidOutput(
+      { content: '', thinking: 'let me count the tokens' },
+      true,
+    )
+    expect(body.raw).toBe('')
+    expect(body.thinking).toBe('let me count the tokens')
+  })
+
+  it('omits thinking when the model reported none', async () => {
+    const body = await invalidOutput({ content: 'not valid json' }, true)
+    expect(body).not.toHaveProperty('thinking')
+  })
+
+  it('keeps both ends of an oversized output, because json breaks at the tail', async () => {
+    const content = `${'h'.repeat(DEBUG_EDGE_CHARS)}MIDDLE${'t'.repeat(DEBUG_EDGE_CHARS)}`
+    const body = await invalidOutput({ content }, true)
+
+    expect(body.raw.startsWith('h'.repeat(DEBUG_EDGE_CHARS))).toBe(true)
+    expect(body.raw.endsWith('t'.repeat(DEBUG_EDGE_CHARS))).toBe(true)
+    expect(body.raw).not.toContain('MIDDLE')
+  })
+
+  it('leaves output that fits within both edges untouched', async () => {
+    const content = 'x'.repeat(DEBUG_EDGE_CHARS * 2)
+    expect((await invalidOutput({ content }, true)).raw).toBe(content)
+  })
+
+  it('truncates the thinking text the same way', async () => {
+    const thinking = `${'h'.repeat(DEBUG_EDGE_CHARS)}MIDDLE${'t'.repeat(DEBUG_EDGE_CHARS)}`
+    const body = await invalidOutput({ content: 'nope', thinking }, true)
+    expect(body.thinking).not.toContain('MIDDLE')
   })
 })
 
-describe('parseReviewSystemMode', () => {
-  it('defaults to none when unset, empty, or unrecognised', () => {
-    expect(parseReviewSystemMode(undefined)).toBe('none')
-    expect(parseReviewSystemMode('')).toBe('none')
-    expect(parseReviewSystemMode('nonsense')).toBe('none')
-    expect(parseReviewSystemMode('none')).toBe('none')
+describe('truncateForDebug', () => {
+  it('returns short text unchanged', () => {
+    expect(truncateForDebug('hello')).toBe('hello')
   })
 
-  it('selects prefix when asked for', () => {
-    expect(parseReviewSystemMode('prefix')).toBe('prefix')
-  })
-})
+  // slice() on a raw string would cut an astral character in half and emit a
+  // lone surrogate, which JSON.stringify turns into U+FFFD.
+  it('never splits an astral character into lone surrogates', () => {
+    const emoji = '🙂'
+    const text = emoji.repeat(DEBUG_EDGE_CHARS * 2 + 10)
+    const truncated = truncateForDebug(text)
 
-describe('parseReviewThink', () => {
-  it('leaves think unset when the variable is unset or empty', () => {
-    expect(parseReviewThink(undefined)).toBeUndefined()
-    expect(parseReviewThink('')).toBeUndefined()
-  })
-
-  it('reads "true" and "false" as booleans', () => {
-    expect(parseReviewThink('true')).toBe(true)
-    expect(parseReviewThink('false')).toBe(false)
-  })
-
-  it('passes any other value through as a string level', () => {
-    expect(parseReviewThink('high')).toBe('high')
-    expect(parseReviewThink('low')).toBe('low')
+    expect(truncated).not.toContain('�')
+    expect(JSON.parse(JSON.stringify(truncated))).toBe(truncated)
+    expect(Array.from(truncated).filter((c) => c === emoji)).toHaveLength(
+      DEBUG_EDGE_CHARS * 2,
+    )
   })
 })
 

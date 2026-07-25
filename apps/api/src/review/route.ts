@@ -12,6 +12,7 @@ import {
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
+import type { ReviewSystemMode } from './config.js'
 import { InvalidBaseError } from './git.js'
 import { type BuildReviewInput, createBuildReviewInput } from './input.js'
 import {
@@ -23,8 +24,6 @@ import {
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 import { verifyComments } from './verify.js'
 
-export type ReviewSystemMode = 'none' | 'prefix'
-
 export interface ReviewDeps {
   ollama: OllamaClient
   model: string
@@ -32,27 +31,11 @@ export interface ReviewDeps {
   systemMode?: ReviewSystemMode
   thinkPrefix?: string
   think?: OllamaThink
+  debugRaw?: boolean
 }
 
-const RAW_DEBUG_LIMIT = 2000
-
-export function parseReviewSystemMode(
-  value: string | undefined,
-): ReviewSystemMode {
-  return value === 'prefix' ? 'prefix' : 'none'
-}
-
-export function parseReviewThink(
-  value: string | undefined,
-): OllamaThink | undefined {
-  if (value === undefined || value === '') {
-    return undefined
-  }
-  if (value === 'true' || value === 'false') {
-    return value === 'true'
-  }
-  return value
-}
+export const DEBUG_EDGE_CHARS = 1000
+const ELLIPSIS = '\n...[truncated]...\n'
 
 function parseJson(text: string): unknown {
   try {
@@ -84,11 +67,33 @@ function buildChatRequest(
   return request
 }
 
-function rawDebug(content: string): { raw: string } | undefined {
-  if (process.env.REVIEW_DEBUG_RAW !== '1') {
+// Malformed model output is truncated from the middle: JSON breaks at the tail,
+// so keeping only the head would hide the very defect this flag exists to show.
+// Array.from splits by code point, so an emoji is never cut into lone surrogates.
+export function truncateForDebug(text: string): string {
+  const chars = Array.from(text)
+  if (chars.length <= DEBUG_EDGE_CHARS * 2) {
+    return text
+  }
+  const head = chars.slice(0, DEBUG_EDGE_CHARS).join('')
+  const tail = chars.slice(-DEBUG_EDGE_CHARS).join('')
+  return `${head}${ELLIPSIS}${tail}`
+}
+
+function rawDebug(
+  deps: ReviewDeps,
+  result: { content: string; thinking?: string },
+): { raw: string; thinking?: string } | undefined {
+  if (deps.debugRaw !== true) {
     return undefined
   }
-  return { raw: content.slice(0, RAW_DEBUG_LIMIT) }
+  const debug: { raw: string; thinking?: string } = {
+    raw: truncateForDebug(result.content),
+  }
+  if (result.thinking !== undefined) {
+    debug.thinking = truncateForDebug(result.thinking)
+  }
+  return debug
 }
 
 export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
@@ -198,7 +203,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         {
           error: 'invalid_model_output',
           message: 'model did not return valid json',
-          ...rawDebug(result.content),
+          ...rawDebug(deps, result),
         },
         502,
       )
@@ -210,7 +215,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         {
           error: 'invalid_model_output',
           message: review.error.message,
-          ...rawDebug(result.content),
+          ...rawDebug(deps, result),
         },
         502,
       )
