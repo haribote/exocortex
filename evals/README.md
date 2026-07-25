@@ -235,7 +235,7 @@ clean case ではこれが false positive の候補になる。
 
 ### トークン予算の計器
 
-`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（32768）に対して入力がどれだけ詰まっていたかを示す。
+`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（65536）に対して入力がどれだけ詰まっていたかを示す。
 残余が負なら、その run では prompt が context を実際に超えている。
 
 思考は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを上回る。
@@ -332,11 +332,11 @@ tokenizer の密度がモデルごとに違う。
 | `qwen3.5:9b` | 2.94 |
 | `gemma4:12b` | 2.58 |
 
-`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` は 3 である。
+`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` には、この 3 つのうち最も密な 2.58 を採ってある。
 サーバーはこの値で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰める。
-qwen3 では安全側に倒れるが、gemma4 では 16% の過小評価になる。
+3 の頃は qwen3 では安全側に倒れる一方 gemma4 では 16% の過小評価になっていたが、密な側に合わせたことでどちらも過小評価しなくなった。
 
-ただし、この過小評価だけで context を超えるわけではない。
+ただし、係数を直しても context の超過はなくならない。
 `size-large-02` を thinking 無効の `gemma4:12b` で回すと 3 回とも成功し、検出もできる。
 入力そのものは収まっており、超えさせているのは思考である。
 

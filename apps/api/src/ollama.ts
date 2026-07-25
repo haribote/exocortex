@@ -30,6 +30,7 @@ export interface OllamaChatResult {
   promptEvalTokens?: number
   outputTokens?: number
   loadDurationMs?: number
+  doneReason?: string
 }
 
 export interface OllamaChatChunk {
@@ -54,7 +55,15 @@ export interface OllamaClientOptions {
   idleTimeoutMs?: number
 }
 
-const REQUEST_TIMEOUT_MS = 300_000
+// One /review call covers a cold model load (ollama gives that its own 5 minute
+// budget) followed by generation that the 64K window lets run for tens of
+// thousands of tokens. At the measured ~62 tokens per second, 300000 cut off a
+// review that was still writing at 17882 tokens, so the ceiling has to sit above
+// what the context allows rather than below it.
+const REQUEST_TIMEOUT_MS = 900_000
+// The streaming path is bounded by silence rather than by total length: a
+// translation that has produced nothing for this long is stuck, however long the
+// whole call is allowed to take.
 const IDLE_TIMEOUT_MS = 300_000
 const MAX_LINE_BYTES = 1024 * 1024
 
@@ -335,6 +344,9 @@ function toChatResult(body: unknown): OllamaChatResult {
   }
   if (typeof record.load_duration === 'number') {
     result.loadDurationMs = Math.round(record.load_duration / 1_000_000)
+  }
+  if (typeof record.done_reason === 'string') {
+    result.doneReason = record.done_reason
   }
   return result
 }

@@ -6,6 +6,7 @@ import {
 import type { Hono } from 'hono'
 import {
   type OllamaChatRequest,
+  type OllamaChatResult,
   type OllamaClient,
   OllamaResponseError,
   type OllamaThink,
@@ -35,6 +36,43 @@ export interface ReviewDeps {
 
 export const DEBUG_EDGE_CHARS = 1000
 const ELLIPSIS = '\n...[truncated]...\n'
+
+// Ollama stops for "length" when the context ran out before the model finished.
+// The content is then a prefix of the intended answer, so the json it breaks on
+// is a symptom of the budget rather than of the model writing bad json.
+const OUT_OF_CONTEXT = 'length'
+
+export interface ReviewLogEntry {
+  outcome: string
+  model: string
+  inputTokens: number
+  elapsedMs: number
+  // A request that timed out or never reached ollama has no result to report,
+  // and those are the outcomes worth reading afterwards, so the line has to
+  // survive without one.
+  result?: OllamaChatResult
+}
+
+// The api is otherwise silent, so a review that fails leaves nothing behind to
+// read afterwards. One line per inference makes the token budget observable
+// from the server side instead of only from the ollama runner's own log.
+export function logReview(entry: ReviewLogEntry): void {
+  const { outcome, model, inputTokens, elapsedMs, result } = entry
+  console.log(
+    JSON.stringify({
+      event: 'review',
+      outcome,
+      model,
+      inputTokens,
+      elapsedMs,
+      promptEvalTokens: result?.promptEvalTokens,
+      outputTokens: result?.outputTokens,
+      thinkingChars: result?.thinking?.length,
+      doneReason: result?.doneReason,
+      durationMs: result?.totalDurationMs,
+    }),
+  )
+}
 
 function parseJson(text: string): unknown {
   try {
@@ -169,11 +207,22 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
       )
     }
 
+    const startedAt = Date.now()
+    const log = (outcome: string, result?: OllamaChatResult) =>
+      logReview({
+        outcome,
+        model: deps.model,
+        inputTokens: built.inputTokens,
+        elapsedMs: Date.now() - startedAt,
+        result,
+      })
+
     let result: Awaited<ReturnType<OllamaClient['chat']>>
     try {
       result = await deps.ollama.chat(buildChatRequest(deps, built.input))
     } catch (cause) {
       if (cause instanceof OllamaTimeoutError) {
+        log('inference_timeout')
         return c.json(
           {
             error: 'inference_timeout',
@@ -183,21 +232,36 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         )
       }
       if (cause instanceof OllamaUnreachableError) {
+        log('ollama_unreachable')
         return c.json(
           { error: 'ollama_unreachable', message: 'could not reach ollama' },
           503,
         )
       }
       if (cause instanceof OllamaResponseError) {
+        log('ollama_error')
         return c.json({ error: 'ollama_error', message: cause.message }, 502)
       }
       throw cause
+    }
+
+    if (result.doneReason === OUT_OF_CONTEXT) {
+      log('context_exhausted', result)
+      return c.json(
+        {
+          error: 'context_exhausted',
+          message: 'the model ran out of context before finishing the review',
+          ...rawDebug(deps, result),
+        },
+        502,
+      )
     }
 
     let raw: unknown
     try {
       raw = JSON.parse(result.content)
     } catch {
+      log('invalid_model_output', result)
       return c.json(
         {
           error: 'invalid_model_output',
@@ -210,6 +274,7 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
 
     const review = reviewResultSchema.safeParse(raw)
     if (!review.success) {
+      log('invalid_model_output', result)
       return c.json(
         {
           error: 'invalid_model_output',
@@ -219,6 +284,8 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
         502,
       )
     }
+
+    log('ok', result)
 
     const verified = verifyComments(
       review.data.comments,

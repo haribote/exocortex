@@ -665,7 +665,7 @@ docker compose exec ollama ollama ps
 
 **確認**
 
-- [ ] `CONTEXT` が 32768 になっている
+- [ ] `CONTEXT` が 65536 になっている
 - [ ] `PROCESSOR` が `100% GPU` になっている（`100% CPU` や部分ロードは VRAM に収まっていない状態）
 
 この確認はセットアップ時の一度きりではない。

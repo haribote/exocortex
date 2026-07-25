@@ -147,13 +147,18 @@ curl -NsS --fail-with-body -H 'Content-Type: application/json' \
 | 状況 | HTTP | error |
 |---|---|---|
 | リクエスト不正（params の欠落、snapshot の欠落、不正な base、展開失敗） | 400 | `invalid_request` / `invalid_snapshot` / `no_changes` |
-| Ollama がエラーを返した | 502 | `ollama_error` / `invalid_model_output` |
+| Ollama がエラーを返した | 502 | `ollama_error` / `invalid_model_output` / `context_exhausted` |
 | Ollama 到達不可 | 503 | `ollama_unreachable` |
 | 推論タイムアウト | 504 | `inference_timeout` |
 | snapshot 過大、または diff 単体が context 予算を超過 | 413 | `snapshot_too_large` / `context_too_large` |
 
 `invalid_model_output` は、モデルが JSON を返さなかったか、返した JSON が schema に合わなかったことを示す。
-サーバーの環境変数 `REVIEW_DEBUG_RAW` が有効なとき、この 502 のレスポンスは `raw` と `thinking` を追加で含む。
+
+`context_exhausted` は、context window が尽きてモデルが書き終える前に生成が打ち切られたことを示す。
+出力が壊れた JSON になる点は `invalid_model_output` と同じだが、原因はモデルではなく予算にある。
+入力が大きいほど起きやすく、diff や context を減らして投げ直すと通ることがある。
+
+これら 502 のレスポンスは、サーバーの環境変数 `REVIEW_DEBUG_RAW` が有効なとき `raw` と `thinking` を追加で含む。
 `raw` はモデルの生出力、`thinking` は thinking モデルの思考テキストである。
 どちらも長い場合は先頭 1000 文字と末尾 1000 文字だけを残し、あいだを `...[truncated]...` に置き換える。
 JSON が壊れるのは常に末尾なので、末尾を捨てると原因が見えなくなるためである。

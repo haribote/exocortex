@@ -185,6 +185,41 @@ describe('createOllamaClient', () => {
     expect(result.loadDurationMs).toBe(900)
   })
 
+  // Ollama 0.32.1 docs/api.md, /api/chat: done_reason says why generation
+  // stopped. "length" means the context ran out mid-answer, which is the one
+  // case where the content is a prefix of what the model meant to write.
+  it('reports why generation stopped', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message: { content: '{"summary": "unfinis' },
+            total_duration: 0,
+            done_reason: 'length',
+          }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.doneReason).toBe('length')
+  })
+
+  it('leaves doneReason unset when ollama does not report it', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ message: { content: '{}' }, total_duration: 0 }),
+        ),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.doneReason).toBeUndefined()
+  })
+
   // Ollama 0.32.1 docs/api.md, /api/chat: "thinking: (for thinking models) the
   // model's thinking process", a sibling of content inside the message object.
   it('reports the thinking text from message.thinking', async () => {
