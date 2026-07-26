@@ -306,8 +306,8 @@ anchor は head 適用後のファイル中に一意に現れる 1 行である�
 | `clean-type-annotations-04` | clean | base | バグなし。型注釈の明示化 |
 | `clean-bugfix-05` | clean | worktree | バグなし。実際のバグを正しく修正した差分 |
 | `clean-dependency-update-06` | clean | base | バグなし。依存更新に伴う正しい追随 |
-| `size-small-01` | size | base | minor units の二重変換（約 8,000 tokens の context） |
-| `size-large-02` | size | base | 同一のバグ（約 23,600 tokens の context） |
+| `size-small-01` | size | base | minor units の二重変換（約 8,200 tokens の context） |
+| `size-large-02` | size | base | 同一のバグ（約 26,300 tokens の context） |
 
 `logic-inversion-01` と `dataflow-stale-value-01` と `convention-nondeterminism-01` の 3 件は、commit `a9d124c` の判断に使われた 3 問を復元したものである。
 過去の測定と地続きに読めるようにするために置いてある。
@@ -340,6 +340,10 @@ tokenizer の密度がモデルごとに違う。
 `size-large-02` を thinking 無効の `gemma4:12b` で回すと 3 回とも成功し、検出もできる。
 入力そのものは収まっており、超えさせているのは思考である。
 
+thinking を有効にしたまま 3 回回すと、2 回は思考が 47,066 tokens まで伸びて context を使い切り、502 `context_exhausted` で終わった。
+残る 1 回は 148 秒で完走し、バグも捕まえている。
+同じ入力を同じ設定で回しても、思考の長さは 33,652 文字から 170,997 文字まで揺れる。
+
 そのため、サイズ case では `hit@±2` ではなく `prompt tokens` と `context 残余`、そして `dropped context files` を読む。
 `summary.md` の case 別の表にいずれも出る。
 
@@ -349,6 +353,11 @@ tokenizer の密度がモデルごとに違う。
 
 fixture の大きさは `MAX_INPUT_TOKENS` を基準に決めてある。
 この定数を動かしたときは、サイズ 2 件が意図した側に留まっているかを確かめる。
+
+`CHARS_PER_TOKEN` を 2.58 にした後、2026-07-26 に 2 件を 3 回ずつ測った。
+`size-small-01` は落ちた context ファイルが 0 で、prompt tokens 24,920 に対し context 残余 40,616。
+`size-large-02` は 28 files のうち 13 files が落ち、prompt tokens 28,634 に対し残余 36,902。
+2 件とも意図した側に留まっている。
 
 ## 採否をどう決めるか
 
