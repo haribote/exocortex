@@ -7,14 +7,20 @@ import {
 } from './limits.js'
 
 describe('limits', () => {
-  // The reserve is retuned whenever the measured thinking overhead moves, so
-  // what is pinned is the relationship rather than the number: the reserve
-  // comes out of the same window the input has to fit in.
-  it('reserves output tokens out of the context window', () => {
-    expect(MAX_CONTEXT_TOKENS).toBe(32768)
-    expect(RESERVED_OUTPUT_TOKENS).toBeGreaterThan(0)
-    expect(RESERVED_OUTPUT_TOKENS).toBeLessThan(MAX_CONTEXT_TOKENS)
-    expect(MAX_INPUT_TOKENS).toBe(MAX_CONTEXT_TOKENS - RESERVED_OUTPUT_TOKENS)
+  // What is pinned is the relationship rather than the numbers: the input cap
+  // is fixed, and whatever the window has beyond it belongs to the output and
+  // to the thinking that gets fed back alongside it.
+  it('reserves the rest of the context window for output', () => {
+    expect(MAX_CONTEXT_TOKENS).toBe(65536)
+    expect(MAX_INPUT_TOKENS).toBe(20480)
+    expect(RESERVED_OUTPUT_TOKENS).toBe(MAX_CONTEXT_TOKENS - MAX_INPUT_TOKENS)
+  })
+
+  // The measured worst case was 21411 thinking tokens on top of the input, and
+  // the reserve has to swallow that spread plus the JSON the model still has to
+  // write. A reserve that only covers p95 is what truncated reviews at 32768.
+  it('leaves room for the worst measured thinking overhead', () => {
+    expect(RESERVED_OUTPUT_TOKENS).toBeGreaterThan(21411)
   })
 })
 
@@ -23,11 +29,18 @@ describe('estimateTokens', () => {
     expect(estimateTokens('')).toBe(0)
   })
 
-  it('estimates roughly three characters per token', () => {
-    expect(estimateTokens('abcdef')).toBe(2)
+  it('estimates against the densest measured tokenizer', () => {
+    expect(estimateTokens('a'.repeat(258))).toBe(100)
   })
 
   it('rounds up partial tokens', () => {
     expect(estimateTokens('abcd')).toBe(2)
+  })
+
+  // The estimate drives how much context gets packed, so erring low is what
+  // overruns the window. gemma4:12b measured 2.58 chars per token.
+  it('never estimates below the densest measured tokenizer', () => {
+    const text = 'x'.repeat(10_000)
+    expect(estimateTokens(text)).toBeGreaterThanOrEqual(text.length / 2.58)
   })
 })

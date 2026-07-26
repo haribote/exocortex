@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { MAX_CONTEXT_TOKENS } from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
@@ -107,9 +108,17 @@ describe('docker-compose.yml', () => {
     ).toBeUndefined()
   })
 
-  it('sets OLLAMA_CONTEXT_LENGTH and OLLAMA_KV_CACHE_TYPE for the 32K + q8_0 VRAM budget', () => {
+  it('sets OLLAMA_CONTEXT_LENGTH and OLLAMA_KV_CACHE_TYPE for the 64K + q8_0 VRAM budget', () => {
     const environment = getEnvironment(ollama)
-    expect(environment.OLLAMA_CONTEXT_LENGTH).toBe(32768)
+    expect(environment.OLLAMA_CONTEXT_LENGTH).toBe(65536)
     expect(environment.OLLAMA_KV_CACHE_TYPE).toBe('q8_0')
+  })
+
+  it('gives ollama the window the review budget is sized against', () => {
+    const environment = getEnvironment(ollama)
+    expect(
+      environment.OLLAMA_CONTEXT_LENGTH,
+      'the api packs context against MAX_CONTEXT_TOKENS: a smaller window here truncates the review mid-json, and a larger one leaves the reserve it computed unused',
+    ).toBe(MAX_CONTEXT_TOKENS)
   })
 })

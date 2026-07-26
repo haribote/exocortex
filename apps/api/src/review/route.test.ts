@@ -9,6 +9,7 @@ import type {
 import {
   createOllamaClient,
   OllamaResponseError,
+  OllamaStreamError,
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
@@ -252,6 +253,21 @@ describe('POST /review', () => {
     expect((await res.json()).error).toBe('ollama_error')
   })
 
+  // Ollama has been observed ending the ndjson stream without ever sending the
+  // done line, which leaves the review a prefix of itself. That is a broken
+  // answer from upstream rather than a fault in this service, so it belongs
+  // with the other 502s instead of surfacing as an unhandled 500.
+  it('returns 502 when the ollama stream ends without a done chunk', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaStreamError('ollama stream ended before completion')
+      },
+    })
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(502)
+    expect((await res.json()).error).toBe('ollama_error')
+  })
+
   it('returns 502 when ollama returns valid json that violates the schema', async () => {
     const app = appWith(
       fakeOllama({ content: '{"summary": 1}', totalDurationMs: 0 }),
@@ -268,6 +284,151 @@ describe('POST /review', () => {
     const res = await post(app, form({ language: 'typescript' }))
     expect(res.status).toBe(502)
     expect((await res.json()).error).toBe('invalid_model_output')
+  })
+
+  // Output cut off by the context window is also unparseable json, but blaming
+  // the model sends the reader looking at the prompt instead of at the budget
+  // that actually ran out.
+  it('separates a context overrun from output the model got wrong', async () => {
+    const app = appWith(
+      fakeOllama({
+        content: '{"summary": "unfinis',
+        totalDurationMs: 0,
+        doneReason: 'length',
+      }),
+    )
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(502)
+    expect((await res.json()).error).toBe('context_exhausted')
+  })
+
+  it('still reports a context overrun that happened to leave parseable json', async () => {
+    const app = appWith(
+      fakeOllama({
+        content: validResult,
+        totalDurationMs: 0,
+        doneReason: 'length',
+      }),
+    )
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(502)
+    expect((await res.json()).error).toBe('context_exhausted')
+  })
+
+  it('accepts output the model finished on its own', async () => {
+    const app = appWith(
+      fakeOllama({
+        content: validResult,
+        totalDurationMs: 0,
+        doneReason: 'stop',
+      }),
+    )
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(200)
+  })
+})
+
+describe('POST /review logging', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function captureLog() {
+    return vi.spyOn(console, 'log').mockImplementation(() => {})
+  }
+
+  async function loggedEntry(
+    result: OllamaChatResult,
+  ): Promise<Record<string, unknown>> {
+    const log = captureLog()
+    await post(appWith(fakeOllama(result)), form({ language: 'typescript' }))
+    const [line] = log.mock.calls.at(-1) ?? []
+    return JSON.parse(String(line))
+  }
+
+  it('records the token budget of a successful review', async () => {
+    const entry = await loggedEntry({
+      content: validResult,
+      totalDurationMs: 1234,
+      promptEvalTokens: 28187,
+      outputTokens: 567,
+      doneReason: 'stop',
+    })
+
+    expect(entry).toMatchObject({
+      event: 'review',
+      outcome: 'ok',
+      model: 'qwen2.5-coder:14b',
+      inputTokens: 42,
+      promptEvalTokens: 28187,
+      outputTokens: 567,
+      doneReason: 'stop',
+      durationMs: 1234,
+    })
+  })
+
+  // The estimate and the real count are the two numbers that explain a context
+  // overrun, and neither is visible anywhere else once the request has failed.
+  it('records the estimate alongside the real count when the context runs out', async () => {
+    const entry = await loggedEntry({
+      content: '{"summary": "unfinis',
+      totalDurationMs: 0,
+      promptEvalTokens: 28187,
+      doneReason: 'length',
+    })
+
+    expect(entry).toMatchObject({
+      outcome: 'context_exhausted',
+      inputTokens: 42,
+      promptEvalTokens: 28187,
+    })
+  })
+
+  it('records output the model got wrong under its own outcome', async () => {
+    const entry = await loggedEntry({
+      content: 'not valid json at all',
+      totalDurationMs: 0,
+    })
+
+    expect(entry).toMatchObject({ outcome: 'invalid_model_output' })
+  })
+
+  // A request that never came back is the one worth reading about afterwards,
+  // and it has no result to report, so the line has to be written from what the
+  // route knew before it asked.
+  it.each([
+    ['inference_timeout', new OllamaTimeoutError('timed out')],
+    ['ollama_unreachable', new OllamaUnreachableError('unreachable')],
+    ['ollama_error', new OllamaResponseError('ollama returned 500', 500)],
+    ['ollama_error', new OllamaStreamError('stream ended before completion')],
+  ])('records %s even though no result came back', async (outcome, cause) => {
+    const log = captureLog()
+    await post(
+      appWith({
+        async chat() {
+          throw cause
+        },
+      }),
+      form({ language: 'typescript' }),
+    )
+    const [line] = log.mock.calls.at(-1) ?? []
+
+    expect(JSON.parse(String(line))).toMatchObject({
+      event: 'review',
+      outcome,
+      model: 'qwen2.5-coder:14b',
+      inputTokens: 42,
+    })
+  })
+
+  it('records how long the request actually took', async () => {
+    const entry = await loggedEntry({
+      content: validResult,
+      totalDurationMs: 0,
+    })
+
+    expect(entry.elapsedMs).toBeTypeOf('number')
+    expect(entry.elapsedMs).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -337,7 +498,7 @@ describe('POST /review default request bytes', () => {
       vi.fn(async (_url: unknown, init: RequestInit) => {
         captured = String(init.body)
         return new Response(
-          JSON.stringify({ message: { content: validResult } }),
+          `${JSON.stringify({ message: { content: validResult }, done: true })}\n`,
         )
       }),
     )
@@ -353,7 +514,7 @@ describe('POST /review default request bytes', () => {
     expect(captured).toBe(
       JSON.stringify({
         model: 'qwen2.5-coder:14b',
-        stream: false,
+        stream: true,
         messages: [{ role: 'user', content: buildReviewPrompt(okInput.input) }],
         format: reviewResultJsonSchema,
         options: { temperature: 0 },

@@ -12,6 +12,6 @@
       "severityFloor": "major"
     }
   ],
-  "origin": "入力サイズの対照ペアの大きい側。size-small-01 と同一のバグ・同一の diff を持ち、周辺 context だけを増やしてある。main-01 の時点では MAX_INPUT_TOKENS=28672 の直下（推定 28409）に収めてあったが、その後 RESERVED_OUTPUT_TOKENS を 12288 に引き上げた結果 MAX_INPUT_TOKENS は 20480 になり、この case は予算を超えて context が落とされる側に回った。dropped context files を測る case として使う",
+  "origin": "入力サイズの対照ペアの大きい側。size-small-01 と同一のバグと同一の diff を持ち、周辺 context だけを増やしてある。main-01 の時点では MAX_INPUT_TOKENS=28672 の直下（推定 28409）に収めてあったが、その後 MAX_INPUT_TOKENS が 20480 に下がり、さらに CHARS_PER_TOKEN が 3 から 2.58 になって見積もりが 16% 増えた結果、この case は予算を超えて context が落とされる側に回った。2026-07-26 の計測では 28 files のうち 13 files が落ちている。dropped context files を測る case として使う",
   "clean": false
 }

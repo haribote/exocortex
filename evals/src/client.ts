@@ -1,8 +1,23 @@
 import { readFileSync } from 'node:fs'
 import { type ReviewResponse, reviewResponseSchema } from '@exocortex/contract'
+import { Agent, type Dispatcher, FormData, fetch } from 'undici'
 
 export const DEFAULT_ENDPOINT = 'http://localhost:11435'
-export const DEFAULT_TIMEOUT_MS = 600_000
+// The server gives one /review call 900000 before it answers with
+// inference_timeout. Aborting here first would replace that answer with a
+// client-side error and hide the outcome the run is meant to record.
+export const DEFAULT_TIMEOUT_MS = 960_000
+
+// /review answers only once the whole review is written, so its response headers
+// arrive minutes after the request goes out. undici caps that wait at 300000 by
+// default and no AbortSignal raises it, which ended long runs as a transport
+// failure at five minutes. The ceiling on the call belongs to the signal above,
+// so both timers are off here. Node's built-in fetch rejects an Agent from this
+// package, hence undici's own fetch.
+export const reviewDispatcher = new Agent({
+  headersTimeout: 0,
+  bodyTimeout: 0,
+})
 
 export interface ReviewParams {
   language: string
@@ -16,6 +31,7 @@ export interface ReviewCall {
   params: ReviewParams
   endpoint?: string
   timeoutMs?: number
+  dispatcher?: Dispatcher
 }
 
 export interface ReviewOutcome {
@@ -44,6 +60,7 @@ export async function callReview(call: ReviewCall): Promise<ReviewOutcome> {
   const response = await fetch(`${endpoint}/review`, {
     method: 'POST',
     body: form,
+    dispatcher: call.dispatcher ?? reviewDispatcher,
     signal: AbortSignal.timeout(call.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   })
   const body = await response.text()

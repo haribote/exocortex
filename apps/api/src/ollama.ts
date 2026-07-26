@@ -30,12 +30,18 @@ export interface OllamaChatResult {
   promptEvalTokens?: number
   outputTokens?: number
   loadDurationMs?: number
+  doneReason?: string
 }
 
 export interface OllamaChatChunk {
   content: string
   done: boolean
+  thinking?: string
   totalDurationMs?: number
+  promptEvalTokens?: number
+  outputTokens?: number
+  loadDurationMs?: number
+  doneReason?: string
 }
 
 export interface OllamaChatStreamOptions {
@@ -52,9 +58,17 @@ export interface OllamaClient {
 
 export interface OllamaClientOptions {
   idleTimeoutMs?: number
+  requestTimeoutMs?: number
 }
 
-const REQUEST_TIMEOUT_MS = 300_000
+// The ceiling on one whole call: a cold model load followed by generation that
+// the 64K window lets run for tens of thousands of tokens. At the measured ~72
+// tokens per second the window runs out well before this does, which is where
+// the ceiling belongs.
+const REQUEST_TIMEOUT_MS = 900_000
+// Both paths are bounded by silence rather than by total length: a call that has
+// produced nothing for this long is stuck, however long the whole call is
+// allowed to take.
 const IDLE_TIMEOUT_MS = 300_000
 const MAX_LINE_BYTES = 1024 * 1024
 
@@ -63,94 +77,132 @@ export function createOllamaClient(
   options: OllamaClientOptions = {},
 ): OllamaClient {
   const idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS
+  const requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS
+
+  async function openStream(
+    request: OllamaChatRequest,
+    streamOptions: {
+      signal?: AbortSignal
+      deadlineSignal?: AbortSignal
+    },
+  ): Promise<AsyncIterable<OllamaChatChunk>> {
+    const idleController = new AbortController()
+    const signals = [idleController.signal]
+    if (streamOptions.signal) {
+      signals.push(streamOptions.signal)
+    }
+    if (streamOptions.deadlineSignal) {
+      signals.push(streamOptions.deadlineSignal)
+    }
+
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    const armIdleTimer = () => {
+      idleTimer = setTimeout(() => idleController.abort(), idleTimeoutMs)
+    }
+    const clearIdleTimer = () => {
+      if (idleTimer !== undefined) {
+        clearTimeout(idleTimer)
+        idleTimer = undefined
+      }
+    }
+
+    const iterateOptions: IterateOptions = {
+      idleController,
+      externalSignal: streamOptions.signal,
+      deadlineSignal: streamOptions.deadlineSignal,
+      clearIdleTimer,
+      armIdleTimer,
+    }
+
+    armIdleTimer()
+    let response: Response
+    try {
+      response = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildBody(request, true)),
+        signal: AbortSignal.any(signals),
+      })
+    } catch (cause) {
+      clearIdleTimer()
+      throw toStreamStartError(cause, iterateOptions)
+    }
+
+    if (!response.ok) {
+      clearIdleTimer()
+      const detail = await response.text().catch(() => '')
+      throw new OllamaResponseError(
+        detail.trim() || `ollama returned ${response.status}`,
+        response.status,
+      )
+    }
+
+    const body = response.body
+    if (body === null) {
+      clearIdleTimer()
+      throw new OllamaStreamError('ollama returned an empty body')
+    }
+
+    return iterateChunks(body, iterateOptions)
+  }
 
   return {
+    // Streaming here is not about handing the answer over in pieces: it is what
+    // makes ollama send the response headers before generation ends. undici caps
+    // the wait for headers at 300000 and no signal passed to fetch raises that
+    // ceiling, so a non-streaming call died as a fetch failure at five minutes
+    // no matter what REQUEST_TIMEOUT_MS said.
     async chat(request) {
-      const body = buildBody(request, false)
-
-      let response: Response
-      try {
-        response = await fetch(`${baseUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        })
-      } catch (cause) {
-        throw toFetchError(cause)
-      }
-
-      if (!response.ok) {
-        throw new OllamaResponseError(
-          `ollama returned ${response.status}`,
-          response.status,
-        )
-      }
-
-      const parsed: unknown = await response.json()
-      return toChatResult(parsed)
+      const chunks = await openStream(request, {
+        deadlineSignal: AbortSignal.timeout(requestTimeoutMs),
+      })
+      return collectChatResult(chunks)
     },
 
     async chatStream(request, streamOptions = {}) {
-      const idleController = new AbortController()
-      const signals = [idleController.signal]
-      if (streamOptions.signal) {
-        signals.push(streamOptions.signal)
-      }
-
-      let idleTimer: ReturnType<typeof setTimeout> | undefined
-      const armIdleTimer = () => {
-        idleTimer = setTimeout(() => idleController.abort(), idleTimeoutMs)
-      }
-      const clearIdleTimer = () => {
-        if (idleTimer !== undefined) {
-          clearTimeout(idleTimer)
-          idleTimer = undefined
-        }
-      }
-
-      armIdleTimer()
-      let response: Response
-      try {
-        response = await fetch(`${baseUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildBody(request, true)),
-          signal: AbortSignal.any(signals),
-        })
-      } catch (cause) {
-        clearIdleTimer()
-        throw toStreamStartError(cause, idleController, streamOptions.signal)
-      }
-
-      if (!response.ok) {
-        clearIdleTimer()
-        const detail = await response.text().catch(() => '')
-        throw new OllamaResponseError(
-          detail.trim() || `ollama returned ${response.status}`,
-          response.status,
-        )
-      }
-
-      const body = response.body
-      if (body === null) {
-        clearIdleTimer()
-        throw new OllamaStreamError('ollama returned an empty body')
-      }
-
-      return iterateChunks(body, {
-        idleController,
-        externalSignal: streamOptions.signal,
-        clearIdleTimer,
-        armIdleTimer,
-      })
+      return openStream(request, { signal: streamOptions.signal })
     },
   }
+}
+
+async function collectChatResult(
+  chunks: AsyncIterable<OllamaChatChunk>,
+): Promise<OllamaChatResult> {
+  let content = ''
+  let thinking = ''
+  let last: OllamaChatChunk | undefined
+  for await (const chunk of chunks) {
+    content += chunk.content
+    thinking += chunk.thinking ?? ''
+    last = chunk
+  }
+
+  const result: OllamaChatResult = {
+    content,
+    totalDurationMs: last?.totalDurationMs ?? 0,
+  }
+  if (thinking !== '') {
+    result.thinking = thinking
+  }
+  if (last?.promptEvalTokens !== undefined) {
+    result.promptEvalTokens = last.promptEvalTokens
+  }
+  if (last?.outputTokens !== undefined) {
+    result.outputTokens = last.outputTokens
+  }
+  if (last?.loadDurationMs !== undefined) {
+    result.loadDurationMs = last.loadDurationMs
+  }
+  if (last?.doneReason !== undefined) {
+    result.doneReason = last.doneReason
+  }
+  return result
 }
 
 interface IterateOptions {
   idleController: AbortController
   externalSignal: AbortSignal | undefined
+  deadlineSignal: AbortSignal | undefined
   clearIdleTimer: () => void
   armIdleTimer: () => void
 }
@@ -243,35 +295,48 @@ function parseLine(line: string): OllamaChatChunk | undefined {
   const content = typeof message.content === 'string' ? message.content : ''
   const done = record.done === true
   const chunk: OllamaChatChunk = { content, done }
-  if (done && typeof record.total_duration === 'number') {
+  if (typeof message.thinking === 'string') {
+    chunk.thinking = message.thinking
+  }
+  if (typeof record.total_duration === 'number') {
     chunk.totalDurationMs = Math.round(record.total_duration / 1_000_000)
+  }
+  if (typeof record.prompt_eval_count === 'number') {
+    chunk.promptEvalTokens = record.prompt_eval_count
+  }
+  if (typeof record.eval_count === 'number') {
+    chunk.outputTokens = record.eval_count
+  }
+  if (typeof record.load_duration === 'number') {
+    chunk.loadDurationMs = Math.round(record.load_duration / 1_000_000)
+  }
+  if (typeof record.done_reason === 'string') {
+    chunk.doneReason = record.done_reason
   }
   return chunk
 }
 
-function toFetchError(cause: unknown): Error {
+function toStreamStartError(cause: unknown, options: IterateOptions): Error {
+  if (
+    options.idleController.signal.aborted ||
+    options.deadlineSignal?.aborted
+  ) {
+    return new OllamaTimeoutError('ollama request timed out', { cause })
+  }
+  if (options.externalSignal?.aborted) {
+    return new OllamaAbortedError('ollama request aborted', { cause })
+  }
   if (cause instanceof Error && cause.name === 'TimeoutError') {
     return new OllamaTimeoutError('ollama request timed out', { cause })
   }
   return new OllamaUnreachableError('failed to reach ollama', { cause })
 }
 
-function toStreamStartError(
-  cause: unknown,
-  idleController: AbortController,
-  externalSignal: AbortSignal | undefined,
-): Error {
-  if (idleController.signal.aborted) {
-    return new OllamaTimeoutError('ollama request timed out', { cause })
-  }
-  if (externalSignal?.aborted) {
-    return new OllamaAbortedError('ollama request aborted', { cause })
-  }
-  return new OllamaUnreachableError('failed to reach ollama', { cause })
-}
-
 function toReadError(cause: unknown, options: IterateOptions): Error {
-  if (options.idleController.signal.aborted) {
+  if (
+    options.idleController.signal.aborted ||
+    options.deadlineSignal?.aborted
+  ) {
     return new OllamaTimeoutError('ollama stream stalled', { cause })
   }
   if (options.externalSignal?.aborted) {
@@ -312,31 +377,6 @@ function buildBody(
     body.think = request.think
   }
   return body
-}
-
-function toChatResult(body: unknown): OllamaChatResult {
-  const record = isRecord(body) ? body : {}
-  const message = isRecord(record.message) ? record.message : {}
-  const content = typeof message.content === 'string' ? message.content : ''
-  const totalDuration =
-    typeof record.total_duration === 'number' ? record.total_duration : 0
-  const result: OllamaChatResult = {
-    content,
-    totalDurationMs: Math.round(totalDuration / 1_000_000),
-  }
-  if (typeof message.thinking === 'string') {
-    result.thinking = message.thinking
-  }
-  if (typeof record.prompt_eval_count === 'number') {
-    result.promptEvalTokens = record.prompt_eval_count
-  }
-  if (typeof record.eval_count === 'number') {
-    result.outputTokens = record.eval_count
-  }
-  if (typeof record.load_duration === 'number') {
-    result.loadDurationMs = Math.round(record.load_duration / 1_000_000)
-  }
-  return result
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

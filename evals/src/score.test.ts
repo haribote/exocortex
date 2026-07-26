@@ -344,7 +344,7 @@ describe('scoreOutcome', () => {
     )
 
     expect(score.promptEvalTokens).toBe(30_000)
-    expect(score.contextRemaining).toBe(2768)
+    expect(score.contextRemaining).toBe(MAX_CONTEXT_TOKENS - 30_000)
   })
 
   it('accepts the raw ollama spelling of the prompt token count', () => {
@@ -359,7 +359,7 @@ describe('scoreOutcome', () => {
   it('reports a negative remainder when the prompt overran the window', () => {
     const score = scoreOutcome(
       target,
-      outcomeWithMeta({ promptEvalTokens: 33_000 }),
+      outcomeWithMeta({ promptEvalTokens: MAX_CONTEXT_TOKENS + 232 }),
     )
 
     expect(score.contextRemaining).toBe(-232)

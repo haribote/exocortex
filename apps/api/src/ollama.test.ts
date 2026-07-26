@@ -46,6 +46,10 @@ function chatLine(content: string) {
   return `${JSON.stringify({ message: { role: 'assistant', content }, done: false })}\n`
 }
 
+function thinkingLine(thinking: string) {
+  return `${JSON.stringify({ message: { role: 'assistant', content: '', thinking }, done: false })}\n`
+}
+
 function doneLine(totalDuration: number) {
   return `${JSON.stringify({
     message: { role: 'assistant', content: '' },
@@ -53,6 +57,16 @@ function doneLine(totalDuration: number) {
     done_reason: 'stop',
     total_duration: totalDuration,
   })}\n`
+}
+
+// Ollama reports the totals only on the final line of the stream, so a
+// non-streaming body and a one-line stream carry the same record.
+function finalLine(record: Record<string, unknown>) {
+  return `${JSON.stringify({ ...record, done: true })}\n`
+}
+
+function finalResponse(record: Record<string, unknown>) {
+  return streamResponse([finalLine(record)])
 }
 
 async function collect(
@@ -66,16 +80,63 @@ async function collect(
 }
 
 describe('createOllamaClient', () => {
+  // undici caps the wait for response headers at 300000 and AbortSignal.timeout
+  // does not raise that ceiling. A non-streaming /api/chat withholds its headers
+  // until generation ends, so every review that thinks for longer than five
+  // minutes died as a fetch failure. Streaming makes the headers arrive first.
+  it('asks ollama to stream so the headers arrive before generation ends', async () => {
+    let captured: Record<string, unknown> = {}
+    stubFetch(async (_url, init) => {
+      captured = JSON.parse(String((init as RequestInit).body))
+      return streamResponse([chatLine('hi'), doneLine(0)])
+    })
+
+    const client = createOllamaClient('http://ollama:11434')
+    await client.chat({ model: 'm', prompt: 'hello' })
+
+    expect(captured.stream).toBe(true)
+  })
+
+  it('joins the content of every chunk into one answer', async () => {
+    stubFetch(async () =>
+      streamResponse([
+        chatLine('{"summary":'),
+        chatLine(' "ok"'),
+        chatLine('}'),
+        doneLine(0),
+      ]),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.content).toBe('{"summary": "ok"}')
+  })
+
+  it('joins the thinking of every chunk', async () => {
+    stubFetch(async () =>
+      streamResponse([
+        thinkingLine('first '),
+        thinkingLine('then'),
+        chatLine('{}'),
+        doneLine(0),
+      ]),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.thinking).toBe('first then')
+  })
+
   it('posts a single user message to /api/chat', async () => {
     let captured: unknown
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({
-          message: { content: 'hi' },
-          total_duration: 2_000_000,
-        }),
-      )
+      return finalResponse({
+        message: { content: 'hi' },
+        total_duration: 2_000_000,
+      })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -87,7 +148,7 @@ describe('createOllamaClient', () => {
 
     expect(captured).toMatchObject({
       model: 'm',
-      stream: false,
+      stream: true,
       messages: [{ role: 'user', content: 'hello' }],
       options: { temperature: 0 },
     })
@@ -101,9 +162,7 @@ describe('createOllamaClient', () => {
     let captured: Record<string, unknown> = {}
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
-      )
+      return finalResponse({ message: { content: 'hi' }, total_duration: 0 })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -117,9 +176,7 @@ describe('createOllamaClient', () => {
     let captured: Record<string, unknown> = {}
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
-      )
+      return finalResponse({ message: { content: 'hi' }, total_duration: 0 })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -135,9 +192,7 @@ describe('createOllamaClient', () => {
     let captured: Record<string, unknown> = {}
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
-      )
+      return finalResponse({ message: { content: 'hi' }, total_duration: 0 })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -152,9 +207,7 @@ describe('createOllamaClient', () => {
     let captured: Record<string, unknown> = {}
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({ message: { content: 'hi' }, total_duration: 0 }),
-      )
+      return finalResponse({ message: { content: 'hi' }, total_duration: 0 })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -164,17 +217,14 @@ describe('createOllamaClient', () => {
   })
 
   it('reports the token counts and load duration when ollama returns them', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({
-            message: { content: 'x' },
-            total_duration: 1_500_000_000,
-            load_duration: 900_000_000,
-            prompt_eval_count: 1234,
-            eval_count: 567,
-          }),
-        ),
+    stubFetch(async () =>
+      finalResponse({
+        message: { content: 'x' },
+        total_duration: 1_500_000_000,
+        load_duration: 900_000_000,
+        prompt_eval_count: 1234,
+        eval_count: 567,
+      }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -185,17 +235,43 @@ describe('createOllamaClient', () => {
     expect(result.loadDurationMs).toBe(900)
   })
 
+  // Ollama 0.32.1 docs/api.md, /api/chat: done_reason says why generation
+  // stopped. "length" means the context ran out mid-answer, which is the one
+  // case where the content is a prefix of what the model meant to write.
+  it('reports why generation stopped', async () => {
+    stubFetch(async () =>
+      finalResponse({
+        message: { content: '{"summary": "unfinis' },
+        total_duration: 0,
+        done_reason: 'length',
+      }),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.doneReason).toBe('length')
+  })
+
+  it('leaves doneReason unset when ollama does not report it', async () => {
+    stubFetch(async () =>
+      finalResponse({ message: { content: '{}' }, total_duration: 0 }),
+    )
+
+    const client = createOllamaClient('http://ollama:11434')
+    const result = await client.chat({ model: 'm', prompt: 'p' })
+
+    expect(result.doneReason).toBeUndefined()
+  })
+
   // Ollama 0.32.1 docs/api.md, /api/chat: "thinking: (for thinking models) the
   // model's thinking process", a sibling of content inside the message object.
   it('reports the thinking text from message.thinking', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({
-            message: { content: '{}', thinking: 'first I count the letters' },
-            total_duration: 0,
-          }),
-        ),
+    stubFetch(async () =>
+      finalResponse({
+        message: { content: '{}', thinking: 'first I count the letters' },
+        total_duration: 0,
+      }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -205,11 +281,8 @@ describe('createOllamaClient', () => {
   })
 
   it('leaves thinking unset when the model returned none', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({ message: { content: '{}' }, total_duration: 0 }),
-        ),
+    stubFetch(async () =>
+      finalResponse({ message: { content: '{}' }, total_duration: 0 }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -219,14 +292,11 @@ describe('createOllamaClient', () => {
   })
 
   it('keeps the thinking text even when the content came back empty', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({
-            message: { content: '', thinking: 'ran out of budget' },
-            total_duration: 0,
-          }),
-        ),
+    stubFetch(async () =>
+      finalResponse({
+        message: { content: '', thinking: 'ran out of budget' },
+        total_duration: 0,
+      }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -237,11 +307,8 @@ describe('createOllamaClient', () => {
   })
 
   it('leaves the token counts and load duration unset when ollama omits them', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({ message: { content: 'x' }, total_duration: 0 }),
-        ),
+    stubFetch(async () =>
+      finalResponse({ message: { content: 'x' }, total_duration: 0 }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -256,9 +323,7 @@ describe('createOllamaClient', () => {
     let captured: { format?: unknown } = {}
     stubFetch(async (_url, init) => {
       captured = JSON.parse(String((init as RequestInit).body))
-      return new Response(
-        JSON.stringify({ message: { content: '{}' }, total_duration: 0 }),
-      )
+      return finalResponse({ message: { content: '{}' }, total_duration: 0 })
     })
 
     const client = createOllamaClient('http://ollama:11434')
@@ -268,14 +333,11 @@ describe('createOllamaClient', () => {
   })
 
   it('converts total_duration from nanoseconds to milliseconds', async () => {
-    stubFetch(
-      async () =>
-        new Response(
-          JSON.stringify({
-            message: { content: 'x' },
-            total_duration: 1_500_000_000,
-          }),
-        ),
+    stubFetch(async () =>
+      finalResponse({
+        message: { content: 'x' },
+        total_duration: 1_500_000_000,
+      }),
     )
 
     const client = createOllamaClient('http://ollama:11434')
@@ -301,6 +363,25 @@ describe('createOllamaClient', () => {
     })
 
     const client = createOllamaClient('http://ollama:11434')
+    await expect(
+      client.chat({ model: 'm', prompt: 'p' }),
+    ).rejects.toBeInstanceOf(OllamaTimeoutError)
+  })
+
+  // The idle timer only notices silence. A model that keeps emitting thinking
+  // forever stays under it, so the whole call needs its own ceiling.
+  it('throws OllamaTimeoutError when the call outlasts the request timeout', async () => {
+    stubFetch(async (_url, init) =>
+      streamResponse([chatLine('Hello')], {
+        stall: (init as RequestInit).signal,
+      }),
+    )
+
+    const client = createOllamaClient('http://ollama:11434', {
+      requestTimeoutMs: 20,
+      idleTimeoutMs: 60_000,
+    })
+
     await expect(
       client.chat({ model: 'm', prompt: 'p' }),
     ).rejects.toBeInstanceOf(OllamaTimeoutError)

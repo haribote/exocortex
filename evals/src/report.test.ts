@@ -1,3 +1,4 @@
+import { MAX_CONTEXT_TOKENS } from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
 import type { ReviewOutcome } from './client.ts'
 import { type RunRecord, renderAdjudication, renderSummary } from './report.ts'
@@ -62,10 +63,14 @@ function tableWidths(markdown: string): number[][] {
 }
 
 describe('renderSummary', () => {
+  const overrun = MAX_CONTEXT_TOKENS + 232
   const records = [
     record('C0', 'logic-inversion-01', { promptEvalTokens: 15_400 }),
     record('C1', 'logic-inversion-01', { promptEvalTokens: 30_000 }),
-    record('C1', 'size-01', { promptEvalTokens: 33_000, thinkingTokens: 1242 }),
+    record('C1', 'size-01', {
+      promptEvalTokens: overrun,
+      thinkingTokens: 1242,
+    }),
   ]
   const markdown = renderSummary(records)
 
@@ -79,13 +84,13 @@ describe('renderSummary', () => {
 
   it('reports the largest prompt and the smallest remaining context', () => {
     expect(markdown).toContain('prompt tokens (最大)')
-    expect(markdown).toContain('33000 / -232')
+    expect(markdown).toContain(`${overrun} / -232`)
   })
 
   it('shows a config that never reported tokens as unknown, not as zero', () => {
     const quiet = renderSummary([record('C9', 'logic-inversion-01')])
 
-    expect(quiet).not.toContain('32768 / ')
+    expect(quiet).not.toContain(`${MAX_CONTEXT_TOKENS} / `)
     expect(quiet).toContain('| - | - | - |')
   })
 

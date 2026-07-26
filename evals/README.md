@@ -82,7 +82,7 @@ node src/run.ts --run 2026-07 --configs gemma4:12b --repeats 3
 - `--cases <a,b>`：case を絞る（既定は全件）
 - `--repeats <n>`：同じ組み合わせを何回測るか（既定 1）
 - `--endpoint <url>`：レビューサーバーの URL（既定 `http://localhost:11435`）
-- `--timeout <ms>`：1 リクエストの上限（既定 600000）
+- `--timeout <ms>`：1 リクエストの上限（既定 960000）。サーバーが `inference_timeout` を返す 900000 より上に置いてある
 - `--switch`：config ごとにサーバーを切り替える（下記）
 - `--pull`：サーバーに無いモデルを `ollama pull` で取得する。`--switch` が要る
 - `--health-timeout <ms>`：切り替え後に `/health` を待つ上限（既定 180000）
@@ -235,7 +235,7 @@ clean case ではこれが false positive の候補になる。
 
 ### トークン予算の計器
 
-`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（32768）に対して入力がどれだけ詰まっていたかを示す。
+`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（65536）に対して入力がどれだけ詰まっていたかを示す。
 残余が負なら、その run では prompt が context を実際に超えている。
 
 思考は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを上回る。
@@ -306,8 +306,8 @@ anchor は head 適用後のファイル中に一意に現れる 1 行である�
 | `clean-type-annotations-04` | clean | base | バグなし。型注釈の明示化 |
 | `clean-bugfix-05` | clean | worktree | バグなし。実際のバグを正しく修正した差分 |
 | `clean-dependency-update-06` | clean | base | バグなし。依存更新に伴う正しい追随 |
-| `size-small-01` | size | base | minor units の二重変換（約 8,000 tokens の context） |
-| `size-large-02` | size | base | 同一のバグ（約 23,600 tokens の context） |
+| `size-small-01` | size | base | minor units の二重変換（約 8,200 tokens の context） |
+| `size-large-02` | size | base | 同一のバグ（約 26,300 tokens の context） |
 
 `logic-inversion-01` と `dataflow-stale-value-01` と `convention-nondeterminism-01` の 3 件は、commit `a9d124c` の判断に使われた 3 問を復元したものである。
 過去の測定と地続きに読めるようにするために置いてある。
@@ -332,13 +332,17 @@ tokenizer の密度がモデルごとに違う。
 | `qwen3.5:9b` | 2.94 |
 | `gemma4:12b` | 2.58 |
 
-`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` は 3 である。
+`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` には、この 3 つのうち最も密な 2.58 を採ってある。
 サーバーはこの値で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰める。
-qwen3 では安全側に倒れるが、gemma4 では 16% の過小評価になる。
+3 の頃は qwen3 では安全側に倒れる一方 gemma4 では 16% の過小評価になっていたが、密な側に合わせたことでどちらも過小評価しなくなった。
 
-ただし、この過小評価だけで context を超えるわけではない。
+ただし、係数を直しても context の超過はなくならない。
 `size-large-02` を thinking 無効の `gemma4:12b` で回すと 3 回とも成功し、検出もできる。
 入力そのものは収まっており、超えさせているのは思考である。
+
+thinking を有効にしたまま 3 回回すと、2 回は思考が 47,066 tokens まで伸びて context を使い切り、502 `context_exhausted` で終わった。
+残る 1 回は 148 秒で完走し、バグも捕まえている。
+同じ入力を同じ設定で回しても、思考の長さは 33,652 文字から 170,997 文字まで揺れる。
 
 そのため、サイズ case では `hit@±2` ではなく `prompt tokens` と `context 残余`、そして `dropped context files` を読む。
 `summary.md` の case 別の表にいずれも出る。
@@ -349,6 +353,11 @@ qwen3 では安全側に倒れるが、gemma4 では 16% の過小評価にな�
 
 fixture の大きさは `MAX_INPUT_TOKENS` を基準に決めてある。
 この定数を動かしたときは、サイズ 2 件が意図した側に留まっているかを確かめる。
+
+`CHARS_PER_TOKEN` を 2.58 にした後、2026-07-26 に 2 件を 3 回ずつ測った。
+`size-small-01` は落ちた context ファイルが 0 で、prompt tokens 24,920 に対し context 残余 40,616。
+`size-large-02` は 28 files のうち 13 files が落ち、prompt tokens 28,634 に対し残余 36,902。
+2 件とも意図した側に留まっている。
 
 ## 採否をどう決めるか
 
