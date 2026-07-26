@@ -141,8 +141,7 @@ tracked なファイルを編集せずに済むため、clone や fork した先
 同じモデルで 1 つの変数だけを変えた組を混ぜておくと、差がモデルによるものか設定によるものかを切り分けられる。
 
 thinking の有無の対照は `REVIEW_THINK` で作る。
-`gemma4:12b` では `think` 未指定と `think: true` が完全に同一の結果になり、thinking は既定で有効だと実測で分かっている。
-止めるには `false` を渡す。
+thinking が既定で有効なモデルもあるため、止めるには `false` を明示的に渡す。
 
 `env` に書いた変数だけがサーバーに渡る。
 ある config で指定しなかった変数は、compose ファイルの既定値に戻る。
@@ -235,17 +234,15 @@ clean case ではこれが false positive の候補になる。
 
 ### トークン予算の計器
 
-`prompt tokens` と `context 残余` は、`OLLAMA_CONTEXT_LENGTH`（65536）に対して入力がどれだけ詰まっていたかを示す。
+`prompt tokens` と `context 残余` は、`MAX_CONTEXT_TOKENS` に対して入力がどれだけ詰まっていたかを示す。
 残余が負なら、その run では prompt が context を実際に超えている。
 
 思考は prompt 側に積み上がるため、`promptEvalTokens` は `inputTokens` の見積もりを上回る。
-`gemma4:12b` を 56 件測ったときの差は、p50 が 5286、p95 が 8295、最大 21411 トークンだった。
-入力の大きさではなく case の難しさで決まるので、入力長からは予測できない。
+上回る量は入力の大きさではなく case の難しさで決まるので、入力長からは予測できない。
 この超過は `MAX_INPUT_TOKENS` の外側で起きるため、サーバー側の見積もりを見ているだけでは気付けない。
 
 `outputTokens` だけでは、この超過を測れない。
-`/review` は常に `format` を渡すが、`format` を渡すと `eval_count` が content の分しか数えないことが実測で分かっている。
-`gemma4:12b` では、think=true で `format` 無しなら eval=580 だったものが、`format` 有りでは eval=113 に落ちる一方、thinking の長さは 1242 で変わらなかった。
+`/review` は常に `format` を渡すが、`format` を渡すと `eval_count` は content の分しか数えない。
 思考はトークンを消費しているのに `eval_count` には現れないため、別の計器が要る。
 
 `thinking tokens` は、レスポンスの `meta` に思考の長さが載っていれば記録する。
@@ -323,26 +320,13 @@ anchor は head 適用後のファイル中に一意に現れる 1 行である�
 `size` category の case だけは、目的が他と違う。
 期待どおり検出できたかではなく、入力が実際に何トークンだったか、切り捨てが起きたかを記録することが目的である。
 
-tokenizer の密度がモデルごとに違う。
-同一の 291 文字に対する実測値は次のとおりだった。
+サーバーは `packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰める。
+tokenizer の密度はモデルごとに違うため、この係数はモデルを乗り換えるたびに見直す対象になる。
+密度を過小に見積もると、収まると判断した入力が実際には溢れる。
 
-| モデル | chars/token |
-| --- | --- |
-| `qwen3:14b` | 3.13 |
-| `qwen3.5:9b` | 2.94 |
-| `gemma4:12b` | 2.58 |
-
-`packages/contract/src/limits.ts` の `CHARS_PER_TOKEN` には、この 3 つのうち最も密な 2.58 を採ってある。
-サーバーはこの値で入力量を見積もり、`MAX_INPUT_TOKENS` に収まるまで context を詰める。
-3 の頃は qwen3 では安全側に倒れる一方 gemma4 では 16% の過小評価になっていたが、密な側に合わせたことでどちらも過小評価しなくなった。
-
-ただし、係数を直しても context の超過はなくならない。
-`size-large-02` を thinking 無効の `gemma4:12b` で回すと 3 回とも成功し、検出もできる。
-入力そのものは収まっており、超えさせているのは思考である。
-
-thinking を有効にしたまま 3 回回すと、2 回は思考が 47,066 tokens まで伸びて context を使い切り、502 `context_exhausted` で終わった。
-残る 1 回は 148 秒で完走し、バグも捕まえている。
-同じ入力を同じ設定で回しても、思考の長さは 33,652 文字から 170,997 文字まで揺れる。
+入力が収まっていても、context の超過はなくならない。
+思考は prompt 側に積み上がるうえ、同じ入力を同じ設定で回しても長さが揺れるためである。
+超えさせているのは入力ではなく思考であり、サーバー側の見積もりからは見えない。
 
 そのため、サイズ case では `hit@±2` ではなく `prompt tokens` と `context 残余`、そして `dropped context files` を読む。
 `summary.md` の case 別の表にいずれも出る。
@@ -352,12 +336,7 @@ thinking を有効にしたまま 3 回回すと、2 回は思考が 47,066 toke
 2 件は同じバグと同じ diff を持ち、周辺の context の量だけが違うので、予算を超えたときに何が変わるかを対照で読める。
 
 fixture の大きさは `MAX_INPUT_TOKENS` を基準に決めてある。
-この定数を動かしたときは、サイズ 2 件が意図した側に留まっているかを確かめる。
-
-`CHARS_PER_TOKEN` を 2.58 にした後、2026-07-26 に 2 件を 3 回ずつ測った。
-`size-small-01` は落ちた context ファイルが 0 で、prompt tokens 24,920 に対し context 残余 40,616。
-`size-large-02` は 28 files のうち 13 files が落ち、prompt tokens 28,634 に対し残余 36,902。
-2 件とも意図した側に留まっている。
+この定数と `CHARS_PER_TOKEN` のどちらかを動かしたときは、サイズ 2 件が意図した側に留まっているかを確かめる。
 
 ## 採否をどう決めるか
 
