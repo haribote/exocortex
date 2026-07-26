@@ -9,6 +9,7 @@ import type {
 import {
   createOllamaClient,
   OllamaResponseError,
+  OllamaStreamError,
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
@@ -252,6 +253,21 @@ describe('POST /review', () => {
     expect((await res.json()).error).toBe('ollama_error')
   })
 
+  // Ollama has been observed ending the ndjson stream without ever sending the
+  // done line, which leaves the review a prefix of itself. That is a broken
+  // answer from upstream rather than a fault in this service, so it belongs
+  // with the other 502s instead of surfacing as an unhandled 500.
+  it('returns 502 when the ollama stream ends without a done chunk', async () => {
+    const app = appWith({
+      async chat() {
+        throw new OllamaStreamError('ollama stream ended before completion')
+      },
+    })
+    const res = await post(app, form({ language: 'typescript' }))
+    expect(res.status).toBe(502)
+    expect((await res.json()).error).toBe('ollama_error')
+  })
+
   it('returns 502 when ollama returns valid json that violates the schema', async () => {
     const app = appWith(
       fakeOllama({ content: '{"summary": 1}', totalDurationMs: 0 }),
@@ -384,6 +400,7 @@ describe('POST /review logging', () => {
     ['inference_timeout', new OllamaTimeoutError('timed out')],
     ['ollama_unreachable', new OllamaUnreachableError('unreachable')],
     ['ollama_error', new OllamaResponseError('ollama returned 500', 500)],
+    ['ollama_error', new OllamaStreamError('stream ended before completion')],
   ])('records %s even though no result came back', async (outcome, cause) => {
     const log = captureLog()
     await post(

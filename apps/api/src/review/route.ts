@@ -9,6 +9,7 @@ import {
   type OllamaChatResult,
   type OllamaClient,
   OllamaResponseError,
+  OllamaStreamError,
   type OllamaThink,
   OllamaTimeoutError,
   OllamaUnreachableError,
@@ -238,7 +239,10 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
           503,
         )
       }
-      if (cause instanceof OllamaResponseError) {
+      if (
+        cause instanceof OllamaResponseError ||
+        cause instanceof OllamaStreamError
+      ) {
         log('ollama_error')
         return c.json({ error: 'ollama_error', message: cause.message }, 502)
       }
