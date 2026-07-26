@@ -215,6 +215,8 @@ async function* iterateChunks(
   const decoder = new TextDecoder()
   let buffer = ''
   let sawDone = false
+  let seen = 0
+  let bytes = 0
 
   try {
     for (;;) {
@@ -231,6 +233,7 @@ async function* iterateChunks(
         break
       }
 
+      bytes += result.value.byteLength
       buffer += decoder.decode(result.value, { stream: true })
 
       let newline = buffer.indexOf('\n')
@@ -239,6 +242,7 @@ async function* iterateChunks(
         buffer = buffer.slice(newline + 1)
         const chunk = parseLine(line)
         if (chunk !== undefined) {
+          seen += 1
           if (chunk.done) {
             sawDone = true
           }
@@ -266,7 +270,11 @@ async function* iterateChunks(
     }
 
     if (!sawDone) {
-      throw new OllamaStreamError('ollama stream ended before completion')
+      // Without these counters an early end is indistinguishable from ollama
+      // never having answered at all, and the two have different causes.
+      throw new OllamaStreamError(
+        `ollama stream ended before completion after ${seen} chunks and ${bytes} bytes, trailing ${JSON.stringify(buffer.slice(0, 200))}`,
+      )
     }
   } finally {
     options.clearIdleTimer()
