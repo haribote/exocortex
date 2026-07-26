@@ -481,7 +481,7 @@ describe('POST /review default request bytes', () => {
       vi.fn(async (_url: unknown, init: RequestInit) => {
         captured = String(init.body)
         return new Response(
-          JSON.stringify({ message: { content: validResult } }),
+          `${JSON.stringify({ message: { content: validResult }, done: true })}\n`,
         )
       }),
     )
@@ -497,7 +497,7 @@ describe('POST /review default request bytes', () => {
     expect(captured).toBe(
       JSON.stringify({
         model: 'qwen2.5-coder:14b',
-        stream: false,
+        stream: true,
         messages: [{ role: 'user', content: buildReviewPrompt(okInput.input) }],
         format: reviewResultJsonSchema,
         options: { temperature: 0 },
