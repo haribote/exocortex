@@ -1,3 +1,7 @@
+// Doubling this to 131072 was measured over the full case set and came out worse
+// on every axis but false positives: reviews that finish in a minute at 65536
+// instead ran into the request timeout. The card has room for the wider window,
+// but the clock does not, so a bigger number here buys nothing.
 export const MAX_CONTEXT_TOKENS = 65536
 // The input cap is a fixed number rather than a share of the window. Thinking is
 // fed back as prompt, and its size tracks how hard the case is rather than how
