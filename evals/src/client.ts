@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 import { type ReviewResponse, reviewResponseSchema } from '@exocortex/contract'
 
 export const DEFAULT_ENDPOINT = 'http://localhost:11435'
-export const DEFAULT_TIMEOUT_MS = 600_000
+// The server gives one /review call 900000 before it answers with
+// inference_timeout. Aborting here first would replace that answer with a
+// client-side error and hide the outcome the run is meant to record.
+export const DEFAULT_TIMEOUT_MS = 960_000
 
 export interface ReviewParams {
   language: string

@@ -82,7 +82,7 @@ node src/run.ts --run 2026-07 --configs gemma4:12b --repeats 3
 - `--cases <a,b>`：case を絞る（既定は全件）
 - `--repeats <n>`：同じ組み合わせを何回測るか（既定 1）
 - `--endpoint <url>`：レビューサーバーの URL（既定 `http://localhost:11435`）
-- `--timeout <ms>`：1 リクエストの上限（既定 600000）
+- `--timeout <ms>`：1 リクエストの上限（既定 960000）。サーバーが `inference_timeout` を返す 900000 より上に置いてある
 - `--switch`：config ごとにサーバーを切り替える（下記）
 - `--pull`：サーバーに無いモデルを `ollama pull` で取得する。`--switch` が要る
 - `--health-timeout <ms>`：切り替え後に `/health` を待つ上限（既定 180000）
