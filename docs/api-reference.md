@@ -152,6 +152,10 @@ curl -NsS --fail-with-body -H 'Content-Type: application/json' \
 | 推論タイムアウト | 504 | `inference_timeout` |
 | snapshot 過大、または diff 単体が context 予算を超過 | 413 | `snapshot_too_large` / `context_too_large` |
 
+`ollama_error` は、Ollama が非 2xx を返したか、応答のストリームが完了しないまま終わったことを示す。
+後者は Ollama が生成の途中で終了の印を送らずに接続を閉じた場合に起きる。
+サーバーはどこまで受け取ったかを `message` に残すので、途中で切れたのか最初から返らなかったのかを区別できる。
+
 `invalid_model_output` は、モデルが JSON を返さなかったか、返した JSON が schema に合わなかったことを示す。
 
 `context_exhausted` は、context window が尽きてモデルが書き終える前に生成が打ち切られたことを示す。
