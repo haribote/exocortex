@@ -9,6 +9,7 @@
     "report": "node src/report.ts"
   },
   "dependencies": {
-    "@exocortex/contract": "workspace:*"
+    "@exocortex/contract": "workspace:*",
+    "undici": "^8.9.0"
   }
 }
