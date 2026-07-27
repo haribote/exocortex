@@ -3,7 +3,7 @@ import {
   MAX_INPUT_TOKENS,
   type ReviewRequest,
 } from '@exocortex/contract'
-import { collectCandidates } from './context.js'
+import { type CollectOptions, collectCandidates } from './context.js'
 import { collectDiff } from './git.js'
 import {
   baseInputTokens,
@@ -28,7 +28,9 @@ export type BuildReviewInput = (
   params: ReviewRequest,
 ) => Promise<BuildInputResult>
 
-export function createBuildReviewInput(): BuildReviewInput {
+export function createBuildReviewInput(
+  options: CollectOptions = {},
+): BuildReviewInput {
   return async (snapshot, params) => {
     const { dir, cleanup } = await extractSnapshot(snapshot)
     try {
@@ -47,7 +49,7 @@ export function createBuildReviewInput(): BuildReviewInput {
         return { kind: 'too_large' }
       }
 
-      const candidates = collectCandidates(dir, changedFiles)
+      const candidates = collectCandidates(dir, changedFiles, options)
       const { files, dropped } = packContext(base, candidates)
 
       const input: ReviewPromptInput = { ...base, contextFiles: files }

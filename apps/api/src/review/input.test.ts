@@ -81,6 +81,35 @@ describe('createBuildReviewInput', () => {
     expect(result.kind).toBe('no_changes')
   })
 
+  it('collects a doc that names the changed file', async () => {
+    writeFileSync(join(repo, 'design.md'), 'a.ts settles payments\n')
+    git('add', '.')
+    git('commit', '-qm', 'add docs')
+    writeFileSync(join(repo, 'a.ts'), 'export const a = 999\n')
+    const result = await build(snapshot(), params)
+
+    expect(result.kind).toBe('ok')
+    if (result.kind !== 'ok') return
+    expect(result.input.contextFiles.map((f) => f.path)).toContain('design.md')
+  })
+
+  it('leaves that doc out when built with includeDocs false', async () => {
+    writeFileSync(join(repo, 'design.md'), 'a.ts settles payments\n')
+    git('add', '.')
+    git('commit', '-qm', 'add docs')
+    writeFileSync(join(repo, 'a.ts'), 'export const a = 999\n')
+    const result = await createBuildReviewInput({ includeDocs: false })(
+      snapshot(),
+      params,
+    )
+
+    expect(result.kind).toBe('ok')
+    if (result.kind !== 'ok') return
+    const paths = result.input.contextFiles.map((f) => f.path)
+    expect(paths).not.toContain('design.md')
+    expect(paths).toContain('a.ts')
+  })
+
   it('diffs against a base ref when given', async () => {
     git('checkout', '-qb', 'feature')
     writeFileSync(join(repo, 'c.ts'), 'export const c = 1\n')

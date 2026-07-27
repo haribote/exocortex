@@ -23,6 +23,21 @@ import {
 import { DEBUG_EDGE_CHARS, truncateForDebug } from './route.js'
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 
+// Every other test injects buildReviewInput, so the one line that turns deps
+// into collector options is never executed. Both fields it could read are
+// boolean | undefined, which makes reading the wrong one typecheck.
+const { buildInputFactory } = vi.hoisted(() => ({
+  buildInputFactory: vi.fn(),
+}))
+
+vi.mock('./input.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./input.js')>()),
+  createBuildReviewInput: (options: unknown) => {
+    buildInputFactory(options)
+    return async () => ({ kind: 'no_changes' })
+  },
+}))
+
 type ReviewKnobs = Pick<
   AppDeps,
   'reviewSystemMode' | 'reviewThink' | 'reviewDebugRaw'
@@ -715,5 +730,42 @@ describe('POST /review comment verification', () => {
     const body = await review(resultWith('const nope = 9'))
     expect(body.comments).toHaveLength(0)
     expect(body.meta.droppedComments).toBe(1)
+  })
+})
+
+describe('context collector wiring', () => {
+  afterEach(() => {
+    buildInputFactory.mockClear()
+  })
+
+  // registerReviewRoute builds the collector once, at registration, so the call
+  // happens while createApp runs rather than on a request.
+  function appWithoutBuildInput(knobs: Partial<AppDeps>) {
+    return createApp({
+      ollama: {
+        async chat() {
+          throw new Error('chat is not reached')
+        },
+        async chatStream() {
+          throw new Error('chatStream is not used by /review')
+        },
+      },
+      reviewModel: 'qwen2.5-coder:14b',
+      translateModel: 'test-translate-model',
+      ...knobs,
+    })
+  }
+
+  // debugRaw is deliberately the opposite value: reading it by mistake would
+  // still typecheck and would still produce a boolean, so only a differing
+  // value tells the two apart.
+  it('gives the collector the docs setting rather than another boolean knob', () => {
+    appWithoutBuildInput({ reviewIncludeDocs: false, reviewDebugRaw: true })
+    expect(buildInputFactory).toHaveBeenCalledWith({ includeDocs: false })
+  })
+
+  it('leaves the setting unset when the environment does not pin it', () => {
+    appWithoutBuildInput({})
+    expect(buildInputFactory).toHaveBeenCalledWith({ includeDocs: undefined })
   })
 })

@@ -13,6 +13,7 @@ export interface AppDeps {
   reviewSystemMode?: ReviewSystemMode
   reviewThink?: OllamaThink
   reviewDebugRaw?: boolean
+  reviewIncludeDocs?: boolean
   heartbeatMs?: number
   headersGraceMs?: number
 }
@@ -29,6 +30,7 @@ export function createApp(deps: AppDeps): Hono {
     systemMode: deps.reviewSystemMode,
     think: deps.reviewThink,
     debugRaw: deps.reviewDebugRaw,
+    includeDocs: deps.reviewIncludeDocs,
   })
   registerTranslateRoute(app, {
     ollama: deps.ollama,

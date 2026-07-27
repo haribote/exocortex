@@ -33,6 +33,7 @@ export interface ReviewDeps {
   systemMode?: ReviewSystemMode
   think?: OllamaThink
   debugRaw?: boolean
+  includeDocs?: boolean
 }
 
 export const DEBUG_EDGE_CHARS = 1000
@@ -135,7 +136,8 @@ function rawDebug(
 }
 
 export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
-  const buildInput = deps.buildInput ?? createBuildReviewInput()
+  const buildInput =
+    deps.buildInput ?? createBuildReviewInput({ includeDocs: deps.includeDocs })
 
   app.post('/review', async (c) => {
     const form = await c.req.parseBody().catch(() => null)

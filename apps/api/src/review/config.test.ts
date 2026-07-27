@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   loadReviewConfig,
+  parseReviewContextDocs,
   parseReviewDebugRaw,
   parseReviewSystemMode,
   parseReviewThink,
@@ -80,12 +81,42 @@ describe('parseReviewDebugRaw', () => {
   })
 })
 
+describe('parseReviewContextDocs', () => {
+  // The other boolean flags add behaviour and default off. This one removes
+  // context the reviewer already gets, so an unset variable has to mean on.
+  it('is on when unset or empty', () => {
+    expect(parseReviewContextDocs(undefined)).toBe(true)
+    expect(parseReviewContextDocs('')).toBe(true)
+  })
+
+  it('accepts the documented on and off spellings', () => {
+    expect(parseReviewContextDocs('1')).toBe(true)
+    expect(parseReviewContextDocs('true')).toBe(true)
+    expect(parseReviewContextDocs('0')).toBe(false)
+    expect(parseReviewContextDocs('false')).toBe(false)
+  })
+
+  // A typo silently leaving the docs in would make an a/b run compare two
+  // identical configurations and report the difference as zero.
+  it('refuses anything else rather than silently staying on', () => {
+    expect(() => parseReviewContextDocs('off')).toThrow(ReviewConfigError)
+    expect(() => parseReviewContextDocs('no')).toThrow(ReviewConfigError)
+  })
+
+  it('names the offending variable and value in the error', () => {
+    expect(() => parseReviewContextDocs('off')).toThrow(
+      /REVIEW_CONTEXT_DOCS.*off/s,
+    )
+  })
+})
+
 describe('loadReviewConfig', () => {
   it('returns the baseline configuration for an empty environment', () => {
     expect(loadReviewConfig({})).toEqual({
       systemMode: 'none',
       think: undefined,
       debugRaw: false,
+      includeDocs: true,
     })
   })
 
@@ -95,11 +126,13 @@ describe('loadReviewConfig', () => {
         REVIEW_SYSTEM_MODE: '',
         REVIEW_THINK: '',
         REVIEW_DEBUG_RAW: '',
+        REVIEW_CONTEXT_DOCS: '',
       }),
     ).toEqual({
       systemMode: 'none',
       think: undefined,
       debugRaw: false,
+      includeDocs: true,
     })
   })
 
@@ -109,11 +142,13 @@ describe('loadReviewConfig', () => {
         REVIEW_SYSTEM_MODE: 'prefix',
         REVIEW_THINK: 'high',
         REVIEW_DEBUG_RAW: '1',
+        REVIEW_CONTEXT_DOCS: '0',
       }),
     ).toEqual({
       systemMode: 'prefix',
       think: 'high',
       debugRaw: true,
+      includeDocs: false,
     })
   })
 

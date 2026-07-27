@@ -92,6 +92,7 @@ describe('docker-compose.yml', () => {
       'REVIEW_SYSTEM_MODE',
       'REVIEW_THINK',
       'REVIEW_DEBUG_RAW',
+      'REVIEW_CONTEXT_DOCS',
     ]) {
       expect(
         environment[name],
