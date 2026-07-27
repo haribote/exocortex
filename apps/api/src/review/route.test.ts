@@ -1,4 +1,7 @@
-import { reviewResultJsonSchema } from '@exocortex/contract'
+import {
+  reviewResultJsonSchema,
+  reviewStreamLineSchema,
+} from '@exocortex/contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type AppDeps, createApp } from '../app.js'
 import type {
@@ -15,6 +18,7 @@ import {
 } from '../ollama.js'
 import { InvalidBaseError } from './git.js'
 import type { BuildInputResult, BuildReviewInput } from './input.js'
+import type { BuildPerFilePlan } from './per-file.js'
 import {
   buildReviewBody,
   buildReviewPrompt,
@@ -767,5 +771,201 @@ describe('context collector wiring', () => {
   it('leaves the setting unset when the environment does not pin it', () => {
     appWithoutBuildInput({})
     expect(buildInputFactory).toHaveBeenCalledWith({ includeDocs: undefined })
+  })
+})
+
+describe('per-file mode', () => {
+  function perFileApp(
+    ollama: Pick<OllamaClient, 'chat'>,
+    plan: Awaited<ReturnType<BuildPerFilePlan>>,
+  ) {
+    return createApp({
+      ollama: {
+        async chatStream() {
+          throw new Error('chatStream is not used by /review')
+        },
+        ...ollama,
+      },
+      reviewModel: 'gemma4:12b',
+      translateModel: 'test-translate-model',
+      buildReviewInput: fakeBuild(okInput),
+      buildPerFilePlan: async () => plan,
+    })
+  }
+
+  const target = {
+    kind: 'ok' as const,
+    path: 'a.ts',
+    input: okInput.kind === 'ok' ? okInput.input : undefined,
+    inputTokens: 42,
+    droppedContextFiles: 0,
+  }
+
+  function planWith(targets: unknown[], skipped = 0) {
+    return { kind: 'ok', targets, skipped } as Awaited<
+      ReturnType<BuildPerFilePlan>
+    >
+  }
+
+  async function lines(res: Response): Promise<Record<string, unknown>[]> {
+    const body = await res.text()
+    return body
+      .split('\n')
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+  }
+
+  it('answers with ndjson rather than a single json body', async () => {
+    const app = perFileApp(
+      fakeOllama({ content: validResult, totalDurationMs: 1 }),
+      planWith([target]),
+    )
+    const res = await post(
+      app,
+      form({ language: 'typescript', mode: 'per-file' }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toContain('application/x-ndjson')
+  })
+
+  it('writes a line per file and a done line', async () => {
+    const app = perFileApp(
+      fakeOllama({ content: validResult, totalDurationMs: 1 }),
+      planWith([target], 3),
+    )
+    const res = await post(
+      app,
+      form({ language: 'typescript', mode: 'per-file' }),
+    )
+    const body = await lines(res)
+
+    expect(body[0]).toMatchObject({ file: 'a.ts', summary: 'looks risky' })
+    expect(body[1]).toMatchObject({
+      done: true,
+      meta: { model: 'gemma4:12b', reviewed: 1, skipped: 3, failed: 0 },
+    })
+  })
+
+  it('still answers no_changes with a status rather than a line', async () => {
+    const app = perFileApp(
+      fakeOllama({ content: validResult, totalDurationMs: 1 }),
+      { kind: 'no_changes' },
+    )
+    const res = await post(
+      app,
+      form({ language: 'typescript', mode: 'per-file' }),
+    )
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'no_changes' })
+  })
+
+  it('leaves the whole-review path alone when mode is omitted', async () => {
+    const app = perFileApp(
+      fakeOllama({ content: validResult, totalDurationMs: 1 }),
+      planWith([]),
+    )
+    const res = await post(app, form({ language: 'typescript' }))
+
+    expect(res.headers.get('Content-Type')).toContain('application/json')
+    expect(await res.json()).toMatchObject({ summary: 'looks risky' })
+  })
+
+  it('refuses a mode it does not know', async () => {
+    const app = perFileApp(
+      fakeOllama({ content: validResult, totalDurationMs: 1 }),
+      planWith([]),
+    )
+    const res = await post(app, form({ language: 'typescript', mode: 'file' }))
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_request' })
+  })
+})
+
+describe('per-file mode failures before any inference', () => {
+  function appFailingPlan(cause: Error) {
+    return createApp({
+      ollama: {
+        async chat() {
+          throw new Error('ollama must not be reached')
+        },
+        async chatStream() {
+          throw new Error('chatStream is not used by /review')
+        },
+      },
+      reviewModel: 'gemma4:12b',
+      translateModel: 'test-translate-model',
+      buildReviewInput: fakeBuild(okInput),
+      buildPerFilePlan: async () => {
+        throw cause
+      },
+    })
+  }
+
+  const perFileForm = () => form({ language: 'typescript', mode: 'per-file' })
+
+  it('returns 413 when the snapshot is too large', async () => {
+    const res = await post(
+      appFailingPlan(new SnapshotTooLargeError('too big')),
+      perFileForm(),
+    )
+    expect(res.status).toBe(413)
+    expect((await res.json()).error).toBe('snapshot_too_large')
+  })
+
+  it('returns 400 when the snapshot cannot be extracted', async () => {
+    const res = await post(
+      appFailingPlan(new SnapshotExtractError('bad archive')),
+      perFileForm(),
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('invalid_snapshot')
+  })
+
+  it('returns 400 when the base ref is invalid', async () => {
+    const res = await post(
+      appFailingPlan(new InvalidBaseError('base does not resolve')),
+      perFileForm(),
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('invalid_request')
+  })
+
+  // Once a line has gone out the status is spent, so anything that still goes
+  // wrong has to travel as a line the contract knows. A target the planner
+  // could not have produced stands in for the unforeseen failure.
+  it('keeps every line contract-valid and still finishes when a target is malformed', async () => {
+    const app = createApp({
+      ollama: {
+        async chat() {
+          throw new Error('ollama must not be reached')
+        },
+        async chatStream() {
+          throw new Error('chatStream is not used by /review')
+        },
+      },
+      reviewModel: 'gemma4:12b',
+      translateModel: 'test-translate-model',
+      buildReviewInput: fakeBuild(okInput),
+      buildPerFilePlan: async () =>
+        ({ kind: 'ok', targets: [{ kind: 'broken' }], skipped: 0 }) as never,
+    })
+
+    const res = await post(app, perFileForm())
+    const lines = (await res.text())
+      .split('\n')
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+
+    for (const line of lines) {
+      expect(reviewStreamLineSchema.safeParse(line).success).toBe(true)
+    }
+    expect(lines[0]).toMatchObject({ error: 'ollama_error' })
+    expect(lines[lines.length - 1]).toMatchObject({
+      done: true,
+      meta: { reviewed: 0, failed: 1 },
+    })
   })
 })

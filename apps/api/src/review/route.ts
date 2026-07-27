@@ -1,11 +1,7 @@
-import {
-  reviewRequestSchema,
-  reviewResultJsonSchema,
-  reviewResultSchema,
-} from '@exocortex/contract'
+import { reviewRequestSchema, reviewResultSchema } from '@exocortex/contract'
 import type { Hono } from 'hono'
+import { stream } from 'hono/streaming'
 import {
-  type OllamaChatRequest,
   type OllamaChatResult,
   type OllamaClient,
   OllamaResponseError,
@@ -14,15 +10,15 @@ import {
   OllamaTimeoutError,
   OllamaUnreachableError,
 } from '../ollama.js'
+import { buildChatRequest, OUT_OF_CONTEXT } from './chat.js'
 import type { ReviewSystemMode } from './config.js'
 import { InvalidBaseError } from './git.js'
 import { type BuildReviewInput, createBuildReviewInput } from './input.js'
 import {
-  buildReviewBody,
-  buildReviewPrompt,
-  type ReviewPromptInput,
-  SYSTEM_INSTRUCTION,
-} from './prompt.js'
+  type BuildPerFilePlan,
+  createBuildPerFilePlan,
+  runPerFileReview,
+} from './per-file.js'
 import { SnapshotExtractError, SnapshotTooLargeError } from './snapshot.js'
 import { verifyComments } from './verify.js'
 
@@ -30,19 +26,17 @@ export interface ReviewDeps {
   ollama: OllamaClient
   model: string
   buildInput?: BuildReviewInput
+  buildPerFilePlan?: BuildPerFilePlan
   systemMode?: ReviewSystemMode
   think?: OllamaThink
   debugRaw?: boolean
   includeDocs?: boolean
+  perFileRequestTimeoutMs?: number
+  perFileHeartbeatMs?: number
 }
 
 export const DEBUG_EDGE_CHARS = 1000
 const ELLIPSIS = '\n...[truncated]...\n'
-
-// Ollama stops for "length" when the context ran out before the model finished.
-// The content is then a prefix of the intended answer, so the json it breaks on
-// is a symptom of the budget rather than of the model writing bad json.
-const OUT_OF_CONTEXT = 'length'
 
 export interface ReviewLogEntry {
   outcome: string
@@ -84,26 +78,41 @@ function parseJson(text: string): unknown {
   }
 }
 
-function buildChatRequest(
-  deps: ReviewDeps,
-  input: ReviewPromptInput,
-): OllamaChatRequest {
-  const request: OllamaChatRequest = {
-    model: deps.model,
-    prompt:
-      deps.systemMode === 'prefix'
-        ? buildReviewBody(input)
-        : buildReviewPrompt(input),
-    format: reviewResultJsonSchema,
-    temperature: 0,
+interface JsonFailure {
+  status: 400 | 413
+  body: { error: string; message: string }
+}
+
+// Both modes read the same archive with the same git arguments, so the ways
+// that can fail before any inference starts are the same for both.
+function toSnapshotFailure(cause: unknown): JsonFailure | undefined {
+  if (cause instanceof SnapshotTooLargeError) {
+    return {
+      status: 413,
+      body: { error: 'snapshot_too_large', message: cause.message },
+    }
   }
-  if (deps.systemMode === 'prefix') {
-    request.system = SYSTEM_INSTRUCTION
+  if (cause instanceof SnapshotExtractError) {
+    return {
+      status: 400,
+      body: { error: 'invalid_snapshot', message: cause.message },
+    }
   }
-  if (deps.think !== undefined) {
-    request.think = deps.think
+  if (cause instanceof InvalidBaseError) {
+    return {
+      status: 400,
+      body: { error: 'invalid_request', message: cause.message },
+    }
   }
-  return request
+  return undefined
+}
+
+const NO_CHANGES: JsonFailure = {
+  status: 400,
+  body: {
+    error: 'no_changes',
+    message: 'the snapshot has no changes to review',
+  },
 }
 
 // Malformed model output is truncated from the middle: JSON breaks at the tail,
@@ -138,6 +147,9 @@ function rawDebug(
 export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
   const buildInput =
     deps.buildInput ?? createBuildReviewInput({ includeDocs: deps.includeDocs })
+  const buildPerFilePlan =
+    deps.buildPerFilePlan ??
+    createBuildPerFilePlan({ includeDocs: deps.includeDocs })
 
   app.post('/review', async (c) => {
     const form = await c.req.parseBody().catch(() => null)
@@ -166,39 +178,64 @@ export function registerReviewRoute(app: Hono, deps: ReviewDeps): void {
       )
     }
 
+    const bytes = new Uint8Array(await snapshot.arrayBuffer())
+
+    if (parsed.data.mode === 'per-file') {
+      let plan: Awaited<ReturnType<BuildPerFilePlan>>
+      try {
+        plan = await buildPerFilePlan(bytes, parsed.data)
+      } catch (cause) {
+        const failure = toSnapshotFailure(cause)
+        if (failure) return c.json(failure.body, failure.status)
+        throw cause
+      }
+
+      if (plan.kind === 'no_changes') {
+        return c.json(NO_CHANGES.body, NO_CHANGES.status)
+      }
+
+      // Status is committed the moment the first byte goes out, so everything
+      // that can still fail from here on travels as a line rather than a code.
+      c.header('Content-Type', 'application/x-ndjson')
+      return stream(
+        c,
+        async (s) => {
+          await runPerFileReview(
+            plan,
+            {
+              ollama: deps.ollama,
+              model: deps.model,
+              systemMode: deps.systemMode,
+              think: deps.think,
+              requestTimeoutMs: deps.perFileRequestTimeoutMs,
+              heartbeatMs: deps.perFileHeartbeatMs,
+            },
+            s,
+          )
+        },
+        // runPerFileReview answers for every file it attempts, so reaching here
+        // means the loop itself gave way. The line carries no path because no
+        // single file owns the failure, and the missing done line still says
+        // the run did not finish.
+        async (cause, s) => {
+          await s.writeln(
+            JSON.stringify({ error: 'review_failed', message: String(cause) }),
+          )
+        },
+      )
+    }
+
     let built: Awaited<ReturnType<BuildReviewInput>>
     try {
-      built = await buildInput(
-        new Uint8Array(await snapshot.arrayBuffer()),
-        parsed.data,
-      )
+      built = await buildInput(bytes, parsed.data)
     } catch (cause) {
-      if (cause instanceof SnapshotTooLargeError) {
-        return c.json(
-          { error: 'snapshot_too_large', message: cause.message },
-          413,
-        )
-      }
-      if (cause instanceof SnapshotExtractError) {
-        return c.json(
-          { error: 'invalid_snapshot', message: cause.message },
-          400,
-        )
-      }
-      if (cause instanceof InvalidBaseError) {
-        return c.json({ error: 'invalid_request', message: cause.message }, 400)
-      }
+      const failure = toSnapshotFailure(cause)
+      if (failure) return c.json(failure.body, failure.status)
       throw cause
     }
 
     if (built.kind === 'no_changes') {
-      return c.json(
-        {
-          error: 'no_changes',
-          message: 'the snapshot has no changes to review',
-        },
-        400,
-      )
+      return c.json(NO_CHANGES.body, NO_CHANGES.status)
     }
     if (built.kind === 'too_large') {
       return c.json(
