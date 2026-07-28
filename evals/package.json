@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "eval": "node src/run.ts",
     "report": "node src/report.ts"

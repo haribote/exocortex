@@ -16,6 +16,14 @@ function paths(changedFiles: string[]): string[] {
   return collectCandidates(root, changedFiles).map((f) => f.path)
 }
 
+function writeDocsFixture(): void {
+  write('src/payment.ts', "import { util } from './util.js'\n")
+  write('src/util.ts', 'export const util = 1\n')
+  write('src/caller.ts', "import { payment } from './payment.js'\n")
+  write('CLAUDE.md', 'always use const\n')
+  write('docs/design.md', 'payment.ts handles settlement\n')
+}
+
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'exocortex-collect-'))
 })
@@ -71,5 +79,33 @@ describe('collectCandidates', () => {
 
   it('skips a changed file that no longer exists on disk', () => {
     expect(collectCandidates(root, ['src/deleted.ts'])).toEqual([])
+  })
+
+  it('collects related docs when includeDocs is left unset', () => {
+    writeDocsFixture()
+    expect(paths(['src/payment.ts'])).toContain('docs/design.md')
+  })
+
+  it('drops related docs when includeDocs is false', () => {
+    writeDocsFixture()
+    const result = collectCandidates(root, ['src/payment.ts'], {
+      includeDocs: false,
+    }).map((f) => f.path)
+    expect(result).not.toContain('docs/design.md')
+  })
+
+  // Turning the docs off must leave the a/b comparison with only one variable,
+  // so every other channel has to survive untouched.
+  it('keeps rules, importers and imports when docs are off', () => {
+    writeDocsFixture()
+    const result = collectCandidates(root, ['src/payment.ts'], {
+      includeDocs: false,
+    }).map((f) => f.path)
+    expect(result).toEqual([
+      'src/payment.ts',
+      'CLAUDE.md',
+      'src/caller.ts',
+      'src/util.ts',
+    ])
   })
 })

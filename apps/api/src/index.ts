@@ -16,6 +16,7 @@ const app = createApp({
   reviewSystemMode: review.systemMode,
   reviewThink: review.think,
   reviewDebugRaw: review.debugRaw,
+  reviewIncludeDocs: review.includeDocs,
 })
 
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' })

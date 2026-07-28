@@ -35,6 +35,16 @@ function assertBaseResolves(cwd: string, base: string): void {
   }
 }
 
+function validateDiffOptions(options: DiffOptions): void {
+  if (options.base && options.staged) {
+    throw new InvalidBaseError('base and staged are mutually exclusive')
+  }
+  if (options.base) {
+    assertNotFlagLike(options.base)
+    assertBaseResolves(options.cwd, options.base)
+  }
+}
+
 export function diffArgs(options: DiffOptions): string[] {
   if (options.base) {
     return ['--end-of-options', `${options.base}...HEAD`]
@@ -46,13 +56,7 @@ export function diffArgs(options: DiffOptions): string[] {
 }
 
 export function collectDiff(options: DiffOptions): DiffResult {
-  if (options.base && options.staged) {
-    throw new InvalidBaseError('base and staged are mutually exclusive')
-  }
-  if (options.base) {
-    assertNotFlagLike(options.base)
-    assertBaseResolves(options.cwd, options.base)
-  }
+  validateDiffOptions(options)
 
   const args = diffArgs(options)
   const diff = git(options.cwd, ['diff', ...args])
@@ -62,4 +66,11 @@ export function collectDiff(options: DiffOptions): DiffResult {
     diff,
     changedFiles: names.split('\n').filter((line) => line.length > 0),
   }
+}
+
+export function collectFileDiff(options: DiffOptions, path: string): string {
+  validateDiffOptions(options)
+
+  const args = diffArgs(options)
+  return git(options.cwd, ['diff', ...args, '--', path])
 }

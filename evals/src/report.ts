@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { MAX_CONTEXT_TOKENS, type ReviewComment } from '@exocortex/contract'
+import type { PerFileBreakdown } from './client.ts'
 import type { Score } from './score.ts'
 
 export const RUNS_DIR = join(import.meta.dirname, '..', 'runs')
@@ -13,11 +14,14 @@ export interface RunRecord {
   caseId: string
   repeat: number
   startedAt: string
+  // Optional so records written before per-file mode existed still parse.
+  mode?: 'whole' | 'per-file'
   model: string | null
   summary: string | null
   comments: ReviewComment[]
   score: Score
   body?: string
+  perFile?: PerFileBreakdown
 }
 
 export interface AdjudicationEntry {
@@ -158,6 +162,49 @@ function meanOf(values: readonly number[]): string {
   return values.length === 0 ? '-' : (sum(values) / values.length).toFixed(0)
 }
 
+function medianOf(values: readonly number[]): string {
+  if (values.length === 0) return '-'
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 1) {
+    const value = sorted[mid]
+    return value === undefined ? '-' : value.toFixed(0)
+  }
+  const lower = sorted[mid - 1]
+  const upper = sorted[mid]
+  return lower === undefined || upper === undefined
+    ? '-'
+    : ((lower + upper) / 2).toFixed(0)
+}
+
+function hasPerFile(records: readonly RunRecord[]): boolean {
+  return records.some((record) => record.perFile !== undefined)
+}
+
+interface PerFileTotals {
+  runs: number
+  completed: number
+  failed: number
+  thinkingChars: number[]
+}
+
+function perFileTotals(records: readonly RunRecord[]): PerFileTotals {
+  const withPerFile = records.filter(
+    (record): record is RunRecord & { perFile: PerFileBreakdown } =>
+      record.perFile !== undefined,
+  )
+  return {
+    runs: withPerFile.length,
+    completed: withPerFile.filter((record) => record.perFile.completed).length,
+    failed: sum(withPerFile.map((record) => record.perFile.failed)),
+    thinkingChars: withPerFile.flatMap((record) =>
+      record.perFile.files
+        .map((file) => file.thinkingChars)
+        .filter((value): value is number => value !== undefined),
+    ),
+  }
+}
+
 function overviewTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
   const rows = sortedKeys(byConfig).map((configId) => {
     const records = byConfig.get(configId) ?? []
@@ -205,6 +252,35 @@ function overviewTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
   )
 }
 
+// Only configs that ran in per-file mode have a perFile breakdown to show;
+// a run made entirely of whole-mode records renders no rows here.
+function perFileTable(byConfig: ReadonlyMap<string, RunRecord[]>): string {
+  const rows = sortedKeys(byConfig)
+    .map((configId) => ({ configId, records: byConfig.get(configId) ?? [] }))
+    .filter(({ records }) => hasPerFile(records))
+    .map(({ configId, records }) => {
+      const t = perFileTotals(records)
+      return [
+        configId,
+        String(t.runs),
+        rate(t.completed, t.runs),
+        String(t.failed),
+        medianOf(t.thinkingChars),
+      ]
+    })
+
+  return table(
+    [
+      'config',
+      'per-file runs',
+      'completed',
+      'failed files (計)',
+      'thinking chars (p50)',
+    ],
+    rows,
+  )
+}
+
 function caseTable(
   records: readonly RunRecord[],
   configs: readonly string[],
@@ -240,6 +316,14 @@ export function renderSummary(records: readonly RunRecord[]): string {
     '',
     overviewTable(byConfig),
     '',
+    ...(hasPerFile(records)
+      ? [
+          '## per-file 内訳 (mode=per-file の run のみ)',
+          '',
+          perFileTable(byConfig),
+          '',
+        ]
+      : []),
     '## case 別 hit@±2 (命中した expected / expected 総数)',
     '',
     caseTable(records, configs, (forCase) => {

@@ -2,8 +2,15 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { type EvalCase, loadCases } from './cases.ts'
-import { callReview, DEFAULT_ENDPOINT, DEFAULT_TIMEOUT_MS } from './client.ts'
-import { createFixture } from './fixture.ts'
+import {
+  callReview,
+  callReviewStream,
+  DEFAULT_ENDPOINT,
+  DEFAULT_TIMEOUT_MS,
+  type ReviewCall,
+  type ReviewOutcome,
+} from './client.ts'
+import { createFixture, type Fixture } from './fixture.ts'
 import { parseResults, RUNS_DIR, type RunRecord } from './report.ts'
 import { scoreOutcome } from './score.ts'
 import {
@@ -22,6 +29,14 @@ export const DEFAULT_HEALTH_TIMEOUT_MS = 180_000
 export const BASELINE_ID = 'default'
 export const CURRENT_LABEL = 'current'
 
+export type ReviewMode = 'whole' | 'per-file'
+const REVIEW_MODES: readonly ReviewMode[] = ['whole', 'per-file']
+
+// A per-file run pays for one inference per changed file instead of one for
+// the whole diff, so the wall clock it needs scales with file count rather
+// than staying under the single-call ceiling DEFAULT_TIMEOUT_MS was set for.
+export const PER_FILE_DEFAULT_TIMEOUT_MS = 3_600_000
+
 export interface RunOptions {
   runId: string
   configs: string[] | null
@@ -31,6 +46,7 @@ export interface RunOptions {
   repeats: number
   endpoint: string
   timeoutMs: number
+  mode: ReviewMode
   switchEnabled: boolean
   pull: boolean
   healthTimeoutMs: number
@@ -63,7 +79,8 @@ export function parseOptions(
       cases: { type: 'string' },
       repeats: { type: 'string', default: '1' },
       endpoint: { type: 'string', default: DEFAULT_ENDPOINT },
-      timeout: { type: 'string', default: String(DEFAULT_TIMEOUT_MS) },
+      timeout: { type: 'string' },
+      mode: { type: 'string', default: 'whole' },
       switch: { type: 'boolean', default: false },
       pull: { type: 'boolean', default: false },
       'health-timeout': {
@@ -77,6 +94,18 @@ export function parseOptions(
   if (!Number.isInteger(repeats) || repeats < 1) {
     throw new Error(`--repeats must be a positive integer: ${values.repeats}`)
   }
+
+  const mode = values.mode as ReviewMode
+  if (!REVIEW_MODES.includes(mode)) {
+    throw new Error(`--mode must be one of ${REVIEW_MODES.join(', ')}: ${mode}`)
+  }
+
+  const timeoutMs =
+    values.timeout === undefined
+      ? mode === 'per-file'
+        ? PER_FILE_DEFAULT_TIMEOUT_MS
+        : DEFAULT_TIMEOUT_MS
+      : Number(values.timeout)
 
   const switchEnabled = values.switch === true || env.EXOCORTEX_SWITCH === '1'
   if (!switchEnabled) {
@@ -96,7 +125,8 @@ export function parseOptions(
     caseIds: list(values.cases),
     repeats,
     endpoint: values.endpoint as string,
-    timeoutMs: Number(values.timeout),
+    timeoutMs,
+    mode,
     switchEnabled,
     pull: values.pull === true,
     healthTimeoutMs: Number(values['health-timeout']),
@@ -203,6 +233,23 @@ function readDone(resultsPath: string): Set<string> {
   )
 }
 
+function reviewCall(options: RunOptions, fixture: Fixture): ReviewCall {
+  return {
+    archive: fixture.archive,
+    params: { ...fixture.params, mode: options.mode },
+    endpoint: options.endpoint,
+    timeoutMs: options.timeoutMs,
+  }
+}
+
+function runReview(
+  options: RunOptions,
+  fixture: Fixture,
+): Promise<ReviewOutcome> {
+  const call = reviewCall(options, fixture)
+  return options.mode === 'per-file' ? callReviewStream(call) : callReview(call)
+}
+
 async function measure(
   options: RunOptions,
   configId: string,
@@ -211,12 +258,7 @@ async function measure(
 ): Promise<RunRecord> {
   const fixture = createFixture(evalCase)
   try {
-    const outcome = await callReview({
-      archive: fixture.archive,
-      params: fixture.params,
-      endpoint: options.endpoint,
-      timeoutMs: options.timeoutMs,
-    })
+    const outcome = await runReview(options, fixture)
     const score = scoreOutcome(
       { files: evalCase.treeFiles, expected: evalCase.expected },
       outcome,
@@ -227,11 +269,13 @@ async function measure(
       caseId: evalCase.spec.id,
       repeat,
       startedAt: new Date().toISOString(),
+      mode: options.mode,
       model: outcome.response?.meta.model ?? null,
       summary: outcome.response?.summary ?? null,
       comments: outcome.response?.comments ?? [],
       score,
     }
+    if (outcome.perFile !== undefined) record.perFile = outcome.perFile
     if (!score.schemaOk) record.body = outcome.body
     return record
   } finally {
@@ -245,12 +289,7 @@ async function warmUp(
 ): Promise<WarmUpResult> {
   const fixture = createFixture(evalCase)
   try {
-    const outcome = await callReview({
-      archive: fixture.archive,
-      params: fixture.params,
-      endpoint: options.endpoint,
-      timeoutMs: options.timeoutMs,
-    })
+    const outcome = await runReview(options, fixture)
     return {
       model: outcome.response?.meta.model ?? null,
       wallMs: outcome.wallMs,

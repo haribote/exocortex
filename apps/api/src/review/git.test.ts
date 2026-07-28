@@ -3,7 +3,12 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { collectDiff, diffArgs } from './git.js'
+import {
+  collectDiff,
+  collectFileDiff,
+  diffArgs,
+  InvalidBaseError,
+} from './git.js'
 
 let cwd: string
 
@@ -87,5 +92,59 @@ describe('diffArgs', () => {
       '--end-of-options',
       'main...HEAD',
     ])
+  })
+})
+
+describe('collectFileDiff', () => {
+  it('returns diff for a single file when multiple files changed', () => {
+    writeFileSync(join(cwd, 'a.ts'), 'export const a = 2\n')
+    writeFileSync(join(cwd, 'b.ts'), 'export const b = 1\n')
+    const result = collectFileDiff({ cwd }, 'a.ts')
+    expect(result).toContain('export const a = 2')
+    expect(result).not.toContain('export const b')
+  })
+
+  it('diffs against a base ref when given', () => {
+    git('checkout', '-qb', 'feature')
+    writeFileSync(join(cwd, 'c.ts'), 'export const c = 1\n')
+    git('add', '.')
+    git('commit', '-qm', 'add c')
+    const result = collectFileDiff({ cwd, base: 'main' }, 'c.ts')
+    expect(result).toContain('export const c = 1')
+  })
+
+  it('returns only staged changes when staged is set', () => {
+    writeFileSync(join(cwd, 'a.ts'), 'export const a = 2\n')
+    writeFileSync(join(cwd, 'b.ts'), 'export const b = 1\n')
+    git('add', 'a.ts')
+    const result = collectFileDiff({ cwd, staged: true }, 'a.ts')
+    expect(result).toContain('export const a = 2')
+    expect(result).not.toContain('export const b')
+  })
+
+  it('rejects base and staged given together', () => {
+    expect(() =>
+      collectFileDiff({ cwd, base: 'main', staged: true }, 'a.ts'),
+    ).toThrow(InvalidBaseError)
+  })
+
+  it('rejects a base that does not resolve to a git ref', () => {
+    expect(() =>
+      collectFileDiff({ cwd, base: 'does-not-exist' }, 'a.ts'),
+    ).toThrow(InvalidBaseError)
+  })
+
+  it('handles filenames starting with dash', () => {
+    writeFileSync(join(cwd, '-weird.ts'), 'export const weird = 1\n')
+    git('add', '.')
+    git('commit', '-qm', 'add weird')
+    writeFileSync(join(cwd, '-weird.ts'), 'export const weird = 2\n')
+    const result = collectFileDiff({ cwd }, '-weird.ts')
+    expect(result).toContain('export const weird = 2')
+  })
+
+  it('returns empty string when file has no changes', () => {
+    const result = collectFileDiff({ cwd }, 'a.ts')
+    expect(result).toBe('')
   })
 })

@@ -1,6 +1,6 @@
 import { MAX_CONTEXT_TOKENS } from '@exocortex/contract'
 import { describe, expect, it } from 'vitest'
-import type { ReviewOutcome } from './client.ts'
+import type { PerFileBreakdown, ReviewOutcome } from './client.ts'
 import { type RunRecord, renderAdjudication, renderSummary } from './report.ts'
 import { scoreOutcome } from './score.ts'
 
@@ -55,6 +55,10 @@ function record(
   }
 }
 
+function withPerFile(base: RunRecord, perFile: PerFileBreakdown): RunRecord {
+  return { ...base, mode: 'per-file', perFile }
+}
+
 function tableWidths(markdown: string): number[][] {
   return markdown
     .split('\n')
@@ -96,6 +100,59 @@ describe('renderSummary', () => {
 
   it('averages thinking tokens only over the runs that reported them', () => {
     expect(markdown).toContain('thinking tokens (平均)')
+  })
+
+  it('has no per-file section when nothing ran in per-file mode', () => {
+    expect(markdown).not.toContain('per-file 内訳')
+  })
+})
+
+describe('renderSummary per-file breakdown', () => {
+  const completed = withPerFile(record('C0', 'logic-inversion-01'), {
+    reviewed: 2,
+    skipped: 1,
+    failed: 1,
+    heartbeats: 2,
+    completed: true,
+    files: [
+      { file: 'a.ts', ok: true, thinkingChars: 100 },
+      { file: 'b.ts', ok: true, thinkingChars: 300 },
+      { file: 'c.ts', ok: false, error: 'ollama_error' },
+    ],
+  })
+  const uncompleted = withPerFile(record('C0', 'size-01'), {
+    reviewed: 1,
+    skipped: 0,
+    failed: 0,
+    heartbeats: 0,
+    completed: false,
+    files: [{ file: 'd.ts', ok: true, thinkingChars: 200 }],
+  })
+  const markdown = renderSummary([completed, uncompleted])
+
+  it('keeps every row of the per-file table the same width as its header', () => {
+    for (const table of markdown.split('\n\n')) {
+      if (!table.includes('|')) continue
+      const widths = tableWidths(table).map(([width]) => width)
+      expect(new Set(widths).size, table).toBe(1)
+    }
+  })
+
+  it('reports the completed rate, total failed files, and thinking p50', () => {
+    expect(markdown).toContain('per-file 内訳')
+    expect(markdown).toContain('| C0 | 2 | 50% | 1 | 200 |')
+  })
+
+  it('leaves whole-mode configs out of the per-file table', () => {
+    const mixed = renderSummary([
+      completed,
+      uncompleted,
+      record('C1', 'clean-01'),
+    ])
+    const section = mixed.split('## per-file 内訳')[1]?.split(/\n## /)[0]
+
+    expect(section).toBeDefined()
+    expect(section).not.toContain('C1')
   })
 })
 

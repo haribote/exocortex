@@ -2,9 +2,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { DEFAULT_TIMEOUT_MS } from './client.ts'
 import {
   composeConfigs,
   definedConfigs,
+  PER_FILE_DEFAULT_TIMEOUT_MS,
   parseOptions,
   requiredModels,
   resolveConfigs,
@@ -60,6 +62,7 @@ describe('parseOptions', () => {
     expect(options.repeats).toBe(1)
     expect(options.pull).toBe(false)
     expect(options.endpoint).toBe('http://localhost:11435')
+    expect(options.mode).toBe('whole')
   })
 
   it('reads the candidates as a list of model names', () => {
@@ -88,6 +91,39 @@ describe('parseOptions', () => {
 
     expect(options.pull).toBe(true)
     expect(options.candidates).toEqual(['gemma4:26b'])
+  })
+})
+
+describe('--mode', () => {
+  it('defaults to whole, with the whole timeout', () => {
+    const options = parseOptions([], {})
+
+    expect(options.mode).toBe('whole')
+    expect(options.timeoutMs).toBe(DEFAULT_TIMEOUT_MS)
+  })
+
+  it('switches to per-file and raises the default timeout', () => {
+    const options = parseOptions(['--mode', 'per-file'], {})
+
+    expect(options.mode).toBe('per-file')
+    expect(options.timeoutMs).toBe(PER_FILE_DEFAULT_TIMEOUT_MS)
+  })
+
+  it('lets an explicit --timeout override the per-mode default', () => {
+    const whole = parseOptions(['--timeout', '1000'], {})
+    const perFile = parseOptions(
+      ['--mode', 'per-file', '--timeout', '1000'],
+      {},
+    )
+
+    expect(whole.timeoutMs).toBe(1000)
+    expect(perFile.timeoutMs).toBe(1000)
+  })
+
+  it('rejects a mode that is neither whole nor per-file', () => {
+    expect(() => parseOptions(['--mode', 'nope'], {})).toThrow(
+      /--mode must be one of/,
+    )
   })
 })
 
