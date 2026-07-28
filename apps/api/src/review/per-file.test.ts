@@ -233,7 +233,8 @@ describe('runPerFileReview', () => {
     })
     expect(stream.lines.some((line) => line.includes('"done"'))).toBe(false)
     expect(
-      reviewStreamLineSchema.safeParse(JSON.parse(stream.lines[2] ?? '')).success,
+      reviewStreamLineSchema.safeParse(JSON.parse(stream.lines[2] ?? ''))
+        .success,
     ).toBe(true)
   })
 
