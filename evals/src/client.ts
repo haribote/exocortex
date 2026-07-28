@@ -9,7 +9,7 @@ import {
 import { Agent, type Dispatcher, FormData, fetch } from 'undici'
 
 export const DEFAULT_ENDPOINT = 'http://localhost:11435'
-// The server gives one /review call 900000 before it answers with
+// The server gives one /review call 600000 before it answers with
 // inference_timeout. Aborting here first would replace that answer with a
 // client-side error and hide the outcome the run is meant to record.
 export const DEFAULT_TIMEOUT_MS = 960_000

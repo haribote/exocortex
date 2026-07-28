@@ -68,11 +68,12 @@ export interface OllamaClientOptions {
   requestTimeoutMs?: number
 }
 
-// The ceiling on one whole call: a cold model load followed by generation that
-// the 64K window lets run for tens of thousands of tokens. At the measured ~72
-// tokens per second the window runs out well before this does, which is where
-// the ceiling belongs.
-const REQUEST_TIMEOUT_MS = 900_000
+// The ceiling on one whole call. Of the ~700 reviews that have finished across
+// every recorded eval run, the slowest took 299s, while the ones whose thinking
+// ran away died between 678s and 881s by exhausting the 64K window. A ceiling
+// above that window never fires; this one ends a runaway minutes earlier and
+// still leaves twice the margin over the slowest review that ever completed.
+const REQUEST_TIMEOUT_MS = 600_000
 // Both paths are bounded by silence rather than by total length: a call that has
 // produced nothing for this long is stuck, however long the whole call is
 // allowed to take.
