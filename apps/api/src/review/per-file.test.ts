@@ -213,6 +213,43 @@ describe('runPerFileReview', () => {
     })
   })
 
+  // A done line saying reviewed=0 is indistinguishable from a clean review to a
+  // client that reads the result lines and stops there, so a run that reviewed
+  // nothing at all has to say so as an error.
+  it('ends with a run error instead of a done line when every file failed', async () => {
+    const stream = await run(
+      [target('a.ts'), target('b.ts')],
+      replying(
+        new OllamaTimeoutError('timed out'),
+        new OllamaStreamError('stream ended'),
+      ),
+    )
+
+    const lines = parsed(stream)
+    expect(lines).toHaveLength(3)
+    expect(lines[2]).toEqual({
+      error: 'all_files_failed',
+      message: 'every file in the run failed to review',
+    })
+    expect(stream.lines.some((line) => line.includes('"done"'))).toBe(false)
+    expect(
+      reviewStreamLineSchema.safeParse(JSON.parse(stream.lines[2] ?? '')).success,
+    ).toBe(true)
+  })
+
+  // Nothing failing and nothing being reviewed is a run with no work in it, and
+  // that is the one honest empty review.
+  it('keeps the done line when the plan targeted nothing', async () => {
+    const stream = await run([], replying(), { skipped: 3 })
+
+    const lines = parsed(stream)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatchObject({
+      done: true,
+      meta: { reviewed: 0, skipped: 3, failed: 0 },
+    })
+  })
+
   it('reports a response error from ollama as ollama_error', async () => {
     const stream = await run(
       [target('a.ts')],
@@ -269,7 +306,9 @@ describe('runPerFileReview', () => {
       file: 'huge.ts',
       error: 'context_too_large',
     })
-    expect(lines[1]?.meta).toMatchObject({ reviewed: 0, failed: 1 })
+    // The only file there was never got reviewed, so the run ends as an error
+    // rather than as a done line with an empty review in it.
+    expect(lines[1]).toMatchObject({ error: 'all_files_failed' })
   })
 
   it('carries the count of files the plan never targeted into the done line', async () => {

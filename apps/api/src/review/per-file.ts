@@ -305,6 +305,21 @@ export async function runPerFileReview(
     await stream.writeln(JSON.stringify(outcome.line))
   }
 
+  // A done line carrying no result reads as "reviewed, nothing found" to any
+  // client that stops at the result lines, and that is the opposite of what a
+  // run whose every file ran away means. Only a run that reviewed nothing while
+  // failing at something takes this exit: a plan with no targets at all really
+  // did finish with nothing to say.
+  if (reviewed === 0 && failed > 0) {
+    await stream.writeln(
+      JSON.stringify({
+        error: 'all_files_failed',
+        message: 'every file in the run failed to review',
+      }),
+    )
+    return
+  }
+
   await stream.writeln(
     JSON.stringify({
       done: true,

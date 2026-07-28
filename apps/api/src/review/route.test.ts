@@ -964,8 +964,7 @@ describe('per-file mode failures before any inference', () => {
     }
     expect(lines[0]).toMatchObject({ error: 'ollama_error' })
     expect(lines[lines.length - 1]).toMatchObject({
-      done: true,
-      meta: { reviewed: 0, failed: 1 },
+      error: 'all_files_failed',
     })
   })
 })
